@@ -20,6 +20,8 @@ _IMPORTS = {
     "ParallelReservoir": ".reservoir.parallel",
     "BaseReservoir": ".reservoir.base",
     "verify_esp": ".reservoir.esp",
+    "SequentialDissipativeQRC": ".reservoir.sequential",
+    "verify_esp_sequential": ".reservoir.esp_sequential",
     
     # Architecture
     "DirectQRC": ".architecture.direct",
@@ -31,6 +33,7 @@ _IMPORTS = {
     "RidgeReadout": ".readout.ridge",
     "BaseReadout": ".readout.base",
     "extract_correlators": ".readout.correlators",
+    "extract_correlators_dm": ".readout.correlators",
     
     # Metrics
     "rmse": ".metrics.forecast",
@@ -46,6 +49,7 @@ _IMPORTS = {
     "load_isd_range": ".data.loader",
     "preprocess": ".data.preprocessor",
     "generate_lorenz63": ".data.lorenz",
+    "generate_narma10": ".data.narma",
     "DataSplit": ".data.splits",
     
     # Reservoir metrics

@@ -42,14 +42,24 @@ def load_results() -> dict[str, dict]:
 
 
 def render_table(results: dict[str, dict]) -> str:
-    if not results:
-        return PENDING_BLOCK
+    """Render the forecast-performance table.
 
+    Only `results/*.json` files shaped like {"metrics": {horizon: {rmse,
+    mae, skill, fsdh}}} (or that flat {horizon: {...}} shape directly) are
+    forecast-performance results; this repo's results/ directory also
+    holds other kinds of results (e.g. reservoir benchmarks, NARMA10
+    validation) which are reported elsewhere (see docs/sprint_log/) and
+    are silently skipped here rather than crashing the table renderer.
+    """
     lines = ["| Run | Horizon | RMSE | MAE | Skill | FSDH (h) |",
              "|---|---|---|---|---|---|"]
     for name, data in results.items():
-        metrics = data.get("metrics", data)
-        for horizon, row in sorted(metrics.items()) if isinstance(metrics, dict) else []:
+        metrics = data.get("metrics", data) if isinstance(data, dict) else None
+        if not isinstance(metrics, dict):
+            continue
+        for horizon, row in sorted(metrics.items()):
+            if not isinstance(row, dict) or not ({"rmse", "mae", "skill", "fsdh"} & row.keys()):
+                continue
             lines.append(
                 f"| {name} | {horizon} | {row.get('rmse', '-')} | "
                 f"{row.get('mae', '-')} | {row.get('skill', '-')} | "

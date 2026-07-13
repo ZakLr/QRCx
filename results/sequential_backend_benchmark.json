@@ -1,0 +1,50 @@
+{
+  "backends": {
+    "numpy_n12": {
+      "n_qubits": 12,
+      "n_steps": 3,
+      "wall_clock_s": 362.267,
+      "s_per_step": 120.7557
+    },
+    "numpy_n10": {
+      "n_qubits": 10,
+      "n_steps": 3,
+      "wall_clock_s": 19.762,
+      "s_per_step": 6.5873
+    },
+    "qiskit_aer_n12": {
+      "n_qubits": 12,
+      "n_steps": 3,
+      "wall_clock_s": 261.334,
+      "s_per_step": 87.1113
+    },
+    "pennylane_mixed_n12": {
+      "n_qubits": 12,
+      "n_steps": null,
+      "wall_clock_s": null,
+      "s_per_step": null,
+      "status": "did not complete within 30+ minutes for a single step; killed rather than left blocking the sprint. Excluded from the fastest-backend selection below since it was already the slowest of the three at every qubit count where all three were compared (see docs/sprint_log/SPRINT_1_REPORT.md's correctness cross-check at n=3, where it also ran markedly slower than numpy/qiskit_aer for a 2-step comparison at n=12 before being killed)."
+    }
+  },
+  "projection": {
+    "naive_steps": 104400,
+    "cached_steps": 4374,
+    "12q": {
+      "fastest_backend": "qiskit_aer_n12",
+      "s_per_step": 87.1113,
+      "naive_hours": 2527.2,
+      "cached_hours": 105.86,
+      "go_cached": false
+    },
+    "10q_fallback": {
+      "backend": "numpy_n10",
+      "s_per_step": 6.5873,
+      "naive_hours": 190.98,
+      "cached_hours": 8.0,
+      "go_cached": true
+    }
+  },
+  "decision": "GO_10Q_FALLBACK",
+  "go_threshold_hours": 12.0,
+  "note": "Benchmarked on 3 real steps per backend (1-2 for pennylane_mixed before it was killed for being impractically slow), not the spec's 200 steps, because measured per-step cost already made 200 steps impractical within the sprint's compute budget (200 steps at ~87-121 s/step would be 5-7 wall-clock hours per backend). Per-step cost is a fixed-size dense contraction (same shape every step regardless of input), so a short measurement is a valid basis for the steps/sec estimate. Reproducible via scripts/benchmark_sequential_backends.py, though a full run of that script including pennylane_mixed at n=12 did not complete in this session."
+}

@@ -1,0 +1,17 @@
+{
+  "FAST_MODE": true,
+  "n_qubits": 10,
+  "n_steps": 400,
+  "washout": 10,
+  "n_train": 280,
+  "n_test": 120,
+  "n_features": 165,
+  "ridge_alpha_selected_by_tscv": 0.1,
+  "drive_wall_clock_s": 2460.4610771000152,
+  "steps_per_sec": 0.1666354342346436,
+  "reservoir_nmse": 0.945240822676525,
+  "ar_baseline_nmse": 0.09887401511909959,
+  "beats_ar_baseline": false,
+  "target_nmse": 0.4,
+  "meets_target": false
+}

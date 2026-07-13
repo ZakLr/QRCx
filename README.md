@@ -27,7 +27,11 @@ large Hilbert space (2^N) as a feature source.
 (36 single-body + 198 two-body Pauli correlators — `3N + 3·C(N,2)` for
 N=12). 10 qubits is the only permitted fallback, used only if a
 Sprint-1 runtime gate fails; no other qubit count appears in the reference
-pipeline.
+pipeline. **The Sprint 1 runtime gate did fail at 12 qubits** for the new
+sequential dissipative reservoir specifically (not the v4 windowed
+reservoir) — see Known Limitations and
+`docs/sprint_log/SPRINT_1_REPORT.md`; that reservoir runs at the 10-qubit
+fallback.
 
 The prediction target is a **climatological anomaly**:
 
@@ -164,8 +168,12 @@ cudaq_qrc/
         │   ├── preprocessor.py        # QC → features → climatological anomaly → scale → windows
         │   └── splits.py              # Strict temporal split, target_col_idx
         ├── encoding/zz_feature_map.py # ZZ Feature Map (H→RZ→IsingZZ)
-        ├── reservoir/tfim.py          # AtmosphericQRC — TFIM reservoir (PennyLane)
-        ├── readout/correlators.py     # Pauli correlator extraction (234-dim at N=12)
+        ├── reservoir/tfim.py          # AtmosphericQRC — v4 windowed TFIM reservoir (PennyLane)
+        ├── reservoir/sequential.py    # SequentialDissipativeQRC — v5 recurrent dissipative reservoir (Sprint 1; 10-qubit runtime-gate fallback, see docs/sprint_log/SPRINT_1_REPORT.md)
+        ├── reservoir/sequential_backends.py # qiskit_aer / pennylane_mixed drivers, benchmarked against the numpy backend above
+        ├── reservoir/esp_sequential.py # Trace-distance ESP check for the sequential reservoir
+        ├── data/narma.py              # NARMA10 generator (reservoir sanity benchmark)
+        ├── readout/correlators.py     # Pauli correlator extraction (234-dim at N=12; *_dm variants for density matrices)
         ├── architecture/              # direct.py, residual.py, parallel.py
         ├── baselines/                 # persistence, arima, esn, gfs
         ├── metrics/                   # forecast.py (RMSE/MAE/skill/VPT), fsdh.py, reservoir.py (MC/IPC), noise.py
@@ -199,6 +207,25 @@ cudaq_qrc/
   as of Sprint 0.
 - **No results yet**: `results/` is empty; the Performance section above is
   intentionally a pending placeholder rather than a fabricated number.
+- **Sequential dissipative reservoir (Sprint 1) does not meet its NARMA10
+  sanity target yet**: `SequentialDissipativeQRC` is implemented, tested,
+  and cross-validated across three independent backends (numpy, Qiskit
+  Aer, PennyLane `default.mixed`, all agreeing to ~1e-14), but the
+  NARMA10 micro-validation reservoir NMSE (0.945) is still worse than a
+  linear AR baseline (0.099) and the <0.4 target — see
+  `docs/sprint_log/SPRINT_1_REPORT.md` for the full debugging trail and
+  root causes found so far (feature-symmetry collapse, sample count,
+  regularization were fixed; remaining gap looks like an untuned
+  `gamma1`/`washout`, not a bug).
+- **12-qubit sequential reservoir is NO-GO on runtime**: at the reference
+  12-qubit configuration, the fastest backend measured ~87 s/step, making
+  even the trajectory-cached Sprint 4 pilot (~4,374 steps) project to
+  ~106 hours — over the 12h go/no-go threshold. Sprint 1 falls back to
+  10 qubits (~8.0 hours, GO) for this specific reservoir; the 12-qubit
+  reference configuration is unaffected for the existing v4 windowed
+  `AtmosphericQRC`, which is much cheaper per sample. See
+  `docs/sprint_log/SPRINT_1_REPORT.md` and
+  `results/sequential_backend_benchmark.json`.
 - **Reservoir metrics (MC, IPC) exist but are not wired into the
   `QRCPipeline` orchestrator end-to-end** — they're callable directly
   (`QRCx.measure_memory_capacity`, `QRCx.measure_ipc_24h`) but not part of

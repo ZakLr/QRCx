@@ -18,4 +18,5 @@ QRCx/data/isd/*.gz
 # Local cache/results scratch
 cache/
 *.cache
+results/*.npz
 .claude/
