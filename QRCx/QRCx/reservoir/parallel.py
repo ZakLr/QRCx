@@ -7,7 +7,7 @@ from .tfim_cudaq import AtmosphericQRCCudaQ
 class ParallelReservoir(BaseReservoir):
     def __init__(
         self,
-        n_qubits: int = 8,
+        n_qubits: int = 12,
         n_layers: int = 3,
         trotter_steps: int = 10,
         seed_a: int = 42,
@@ -43,5 +43,5 @@ class ParallelReservoir(BaseReservoir):
             features = np.concatenate([feat_a, feat_b], axis=1)
 
         n_features = features.shape[1]
-        assert features.shape == (n_samples, n_features), f"Expected ({n_samples}, 216), got {features.shape}"
+        assert features.shape == (n_samples, n_features)
         return features

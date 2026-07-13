@@ -1,3 +1,9 @@
+> **ARCHIVED — historical snapshot.** Written during an early 8-qubit/108-dim
+> prototype phase and never updated. The current reference configuration is
+> 12 qubits / 234-dim readout (see top-level `README.md`); all qubit and
+> feature-dimension counts below are stale and describe that earlier phase
+> only. Kept for provenance, not as current documentation.
+
 # QRCx — Full Audit Report
 
 ## SECTION 1: FILE INVENTORY

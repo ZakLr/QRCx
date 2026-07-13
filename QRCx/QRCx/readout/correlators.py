@@ -81,12 +81,11 @@ def extract_correlators(state_vector: np.ndarray, n_qubits: int) -> np.ndarray:
 
     Returns:
         Array of shape (3 * n_qubits + 3 * C(n_qubits, 2),).
+        For the reference 12-qubit configuration this is 234.
     """
     sb = single_body(state_vector, n_qubits)
     tb = two_body(state_vector, n_qubits)
     result = np.concatenate([sb, tb])
     expected = 3 * n_qubits + 3 * n_qubits * (n_qubits - 1) // 2
     assert len(result) == expected, f"Expected {expected} correlators, got {len(result)}"
-    if n_qubits == 8:
-        assert len(result) == 108, f"N=8 should give 108 correlators, got {len(result)}"
     return result

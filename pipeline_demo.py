@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║         QRCx — WINNING SOLUTION (v4 + original merged)                ║
+║         QRCx — PIPELINE DEMO (v4 + original merged)                         ║
 ║         QRC Weather Forecasting Challenge 2026 · Track B                    ║
 ║                                                                              ║
 ║  PURPOSE OF THIS FILE                                                        ║
 ║  ─────────────────────                                                       ║
 ║  Single-file demonstration of the complete QRC weather forecasting           ║
-║  pipeline, merging the proven winning architecture with v4 improvements:     ║
-║  ISD-Lite real data loading (2019-2024), 13-physical-feature engineering,    ║
-║  ZZFeatureMap with projection embedding, TFIM reservoir at critical point,   ║
-║  ESP verification, IPC sweep, memory capacity with OOS split, noise sweep,   ║
-║  and all diagnostic figures.                                                 ║
+║  pipeline: ISD-Lite real data loading (2019-2024), 13-physical-feature       ║
+║  engineering, ZZFeatureMap with projection embedding, TFIM reservoir at      ║
+║  critical point, ESP verification, IPC sweep, in-sample memory capacity,     ║
+║  noise sweep, and all diagnostic figures.                                    ║
 ║                                                                              ║
-║  What this proves:                                                           ║
+║  This is a standalone demo/reference script, not the canonical package.      ║
+║  The canonical, tested pipeline is QRCx/QRCx/ (see top-level README.md).     ║
+║  Its own data loader duplicates QRCx/data/loader.py; QRCx/data/loader.py     ║
+║  is the frozen source of truth — do not port fixes in reverse.               ║
+║                                                                              ║
+║  What this demonstrates:                                                     ║
 ║    1. Full pipeline from real/synthetic data → encode → reservoir →          ║
 ║       readout → residual → metrics works end-to-end                          ║
 ║    2. ResidualQRC beats DirectQRC at 1h horizon on chaotic data              ║
@@ -21,10 +25,11 @@
 ║    4. FSDH returns integer hours                                              ║
 ║    5. ESP converges → reservoir has echo state property                      ║
 ║    6. IPC increases with J/g ratio, peaks near critical point                ║
-║    7. MC with iid windows + OOS split > N/2 at J/g ≈ 1.0                    ║
-║    8. Noise tolerance: RMSE degrades smoothly with p                        ║
+║    7. Memory capacity (iid windows, train=test, Jaeger 2001) > N/2 near      ║
+║       J/g ≈ 1.0 — the OOS 70/30 variant is known-wrong and is not used.     ║
+║    8. Noise tolerance sweep vs. injection probability p                     ║
 ║                                                                              ║
-║  To run:  python winning_solution.py                                         ║
+║  To run:  python pipeline_demo.py                                            ║
 ║  Deps:    pip install pennylane pennylane-lightning scikit-learn              ║
 ║           numpy scipy matplotlib reservoirpy statsmodels pandas              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -79,7 +84,7 @@ class ExperimentConfig:
     All parameters have sensible defaults — you only need to override what
     you want to change. Pass an instance to ``run_full_experiment()``::
 
-        cfg = ExperimentConfig(n_qubits=8, fsdh_max=6, use_isd=False)
+        cfg = ExperimentConfig(n_qubits=12, fsdh_max=12, use_isd=False)
         results, esp_fig, ipc_fig, noise_fig = run_full_experiment(cfg)
 
     Every field is documented below.  If you are unsure what a parameter
@@ -843,7 +848,7 @@ def sweep_jg_ratio(qrc_class, n_qubits: int = 8, n_samples: int = 200,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SECTION 7 — MEMORY CAPACITY (iid windows, OOS split)
+# SECTION 7 — MEMORY CAPACITY (iid windows, train=test, Jaeger 2001)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def measure_memory_capacity(qrc: AtmosphericQRC,
@@ -1256,7 +1261,10 @@ def plot_all_figures(results: dict, save_dir: str = "./qrc_figures",
         fig.suptitle("Ablation: Single-body vs Two-body Readout (1h RMSE)",
                      fontsize=12, color="white")
         vals = [abl["single_body_rmse_1h"], abl["two_body_rmse_1h"]]
-        lbls = ["Single-body\n(24 features)", "Two-body\n(108 features)"]
+        nq_lbl = results.get("n_qubits", 12)
+        n_single = 3 * nq_lbl
+        n_two = 3 * nq_lbl * (nq_lbl - 1) // 2
+        lbls = [f"Single-body\n({n_single} features)", f"Two-body\n({n_two} features)"]
         cols = [AMBER, GREEN]
         bars = ax.bar(lbls, vals, color=cols, edgecolor="#232830", width=0.4)
         for bar, val in zip(bars, vals):
@@ -1705,7 +1713,7 @@ if __name__ == "__main__":
 
     # ── Override any field here ──────────────────────────────────────────
     cfg = ExperimentConfig(
-        n_qubits=12,           # try 8, 10, 16
+        n_qubits=12,           # reference config; 10 is the only permitted fallback
         n_total_samples=4350,  # increase to 8000 for full year
         fsdh_max=12,           # try 6, 24, 48
         eval_horizons=[1, 6],  # try [1, 3, 6, 12]

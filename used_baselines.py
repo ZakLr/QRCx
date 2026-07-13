@@ -2,7 +2,7 @@
 """
 used_baselines.py — Classical baselines with full FSDH curve (1..48h).
 
-Same ISD data pipeline as winning_solution.py (13-feature engineering,
+Same ISD data pipeline as pipeline_demo.py (13-feature engineering,
 80/10/10 split, climatological deseasonalization, StandardScaler).
 
 Baselines: Persistence, ARIMA(2,1,2), ESN-500, ESN-5000
@@ -23,7 +23,7 @@ warnings.filterwarnings("ignore", message="Maximum Likelihood optimization")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from sklearn.preprocessing import StandardScaler
-from winning_solution import (
+from pipeline_demo import (
     load_isd_range, engineer_features,
     generate_synthetic_weather, build_features_from_array,
     rmse, mae, nrmse, skill_score, compute_vpt_curve,

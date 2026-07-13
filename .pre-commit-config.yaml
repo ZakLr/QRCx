@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: readme-results-fresh
+        name: README results block matches results/*.json
+        entry: python scripts/make_readme_tables.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
