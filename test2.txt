@@ -1,0 +1,1345 @@
+"""
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         cudaq_qrc — FULL ENCODER x READOUT SWEEP (12 Qubits)                ║
+║         QRC Weather Forecasting Challenge 2026 · Track B                    ║
+║                                                                              ║
+║  MERGES:                                                                     ║
+║    • NOAA ISD-Lite data acquisition (KORD / O'Hare)                         ║
+║    • ZZ Feature Map → TFIM Quantum Reservoir → KRR Readout                  ║
+║    • ResidualQRC architecture (novel)                                       ║
+║    • Full baseline comparison & paper figures                             ║
+║                                                                              ║
+║  FIXES vs winning_solution.py:                                               ║
+║    • J/g ratio NORMALISED to critical point (~1.0) — no more assert crash  ║
+║    • Real data loader with automatic fallback to synthetic                   ║
+║    • RH computed from T_db / T_dew via Magnus formula                       ║
+║    • Missing-value interpolation for hourly ISD gaps                        ║
+║                                                                              ║
+║  To run:  python unified_qrc_pipeline.py                                    ║
+║  Deps:    pip install pennylane pennylane-lightning scikit-learn              ║
+║           numpy scipy matplotlib reservoirpy statsmodels pandas               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+"""
+
+import os
+import time
+import warnings
+import urllib.request
+import gzip
+import shutil
+from pathlib import Path
+from itertools import combinations
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+from scipy.stats import pearsonr
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
+
+try:
+    import pennylane as qml
+    HAS_PENNYLANE = True
+except ImportError:
+    HAS_PENNYLANE = False
+    print("WARNING: PennyLane not found — using classical mock reservoir for demo")
+
+SEED = 42
+RNG  = np.random.default_rng(SEED)
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+STATION_USAF = "725300"
+STATION_WBAN = "94846"
+DATA_YEARS   = [2023]   # single year for fast iteration
+OUTPUT_DIR   = Path("./isd_data")
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# BLOCK 0 — NOAA ISD DATA ACQUISITION
+# ══════════════════════════════════════════════════════════════════════════════
+
+def download_isd_year(year: int, max_retries: int = 3) -> Optional[Path]:
+    gz_path = OUTPUT_DIR / f"kord_{year}.gz"
+    txt_path = OUTPUT_DIR / f"kord_{year}.txt"
+    if txt_path.exists() and txt_path.stat().st_size > 10000:
+        return txt_path
+    url = f"https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/{year}/{STATION_USAF}-{STATION_WBAN}-{year}.gz"
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"⬇️  {year} (attempt {attempt})...")
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                with open(gz_path, 'wb') as f:
+                    f.write(r.read())
+            break
+        except Exception as e:
+            print(f"   ⚠️  {e}")
+            if attempt == max_retries:
+                return None
+    if not gz_path.exists():
+        return None
+    with gzip.open(gz_path, 'rb') as f_in, open(txt_path, 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+    gz_path.unlink()
+    return txt_path
+
+
+def parse_isd_file(txt_path: Path) -> pd.DataFrame:
+    rows = []
+    with open(txt_path, 'r', encoding='utf-8', errors='replace') as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) < 10:
+                continue
+            try:
+                year, month, day, hour = int(parts[0]), int(parts[1]), int(parts[2]), int(parts[3])
+                if not (1 <= month <= 12 and 1 <= day <= 31 and 0 <= hour <= 23):
+                    continue
+                def parse_field(idx):
+                    if idx >= len(parts) or parts[idx] == '-9999':
+                        return np.nan
+                    return int(parts[idx])
+                rows.append({
+                    'year': year, 'month': month, 'day': day, 'hour': hour,
+                    'T_db': parse_field(4), 'T_dew': parse_field(5),
+                    'SLP': parse_field(6), 'WD': parse_field(7),
+                    'WS': parse_field(8), 'sky': parse_field(9),
+                    'precip_1h': parse_field(10) if len(parts) > 10 else np.nan,
+                    'precip_6h': parse_field(11) if len(parts) > 11 else np.nan
+                })
+            except (ValueError, IndexError):
+                continue
+    df = pd.DataFrame(rows)
+    df['timestamp'] = pd.to_datetime(df[['year', 'month', 'day', 'hour']], errors='coerce')
+    df = df.dropna(subset=['timestamp']).set_index('timestamp').sort_index()
+
+    # ISD-lite stores values in tenths — convert to standard units
+    for col in ['T_db', 'T_dew', 'SLP', 'WS']:
+        if col in df.columns:
+            df[col] = df[col] / 10.0
+
+    # Compute Relative Humidity from T_db and T_dew (Magnus formula, Alduchov & Eskridge 1996)
+    T_db = df['T_db']
+    T_dew = df['T_dew']
+    e_s = 6.1078 * np.exp(17.2694 * T_db / (T_db + 237.3))
+    e_a = 6.1078 * np.exp(17.2694 * T_dew / (T_dew + 237.3))
+    df['RH'] = 100.0 * e_a / e_s
+    df['RH'] = df['RH'].clip(0, 100)
+
+    return df
+
+
+def load_isd_range(years: list = None) -> pd.DataFrame:
+    """Download and concatenate ISD-Lite years. Returns DataFrame with hourly index."""
+    if years is None:
+        years = DATA_YEARS
+    frames = []
+    for year in years:
+        txt = download_isd_year(year)
+        if txt is None:
+            print(f"   ❌ {year}: Download failed (skipped)")
+            continue
+        df_raw = parse_isd_file(txt)
+        print(f"   📊 {year}: {len(df_raw):,} records")
+        frames.append(df_raw)
+    if len(frames) == 0:
+        raise RuntimeError("No data downloaded. Check internet connection or station ID.")
+    df = pd.concat(frames).sort_index()
+    # Reindex to full hourly range to expose gaps
+    full_idx = pd.date_range(df.index.min(), df.index.max(), freq='h')
+    df = df.reindex(full_idx)
+    df.index.name = 'timestamp'
+    # Interpolate small gaps (up to 3 hours) then forward/backward fill
+    core_cols = ['T_db', 'T_dew', 'SLP', 'WS', 'WD', 'RH']
+    for c in core_cols:
+        if c in df.columns:
+            df[c] = df[c].interpolate(method='linear', limit=3)
+    df = df.ffill().bfill()
+    print(f"✅ Downloaded {len(df):,} total hourly slots")
+    return df
+
+# SECTION 1 — DATA
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generate_synthetic_weather(n_hours: int = 2000, seed: int = 42) -> np.ndarray:
+    """
+    Synthetic stand-in for NOAA ISD KORD data.
+
+    Produces a realistic hourly temperature series with:
+      - Diurnal cycle (peaks ~14:00, trough ~05:00)
+      - Weekly drift (slow synoptic forcing)
+      - Chaotic residuals injected via a Lorenz-63 x-component
+      - Shape: (n_hours, 6) → columns: [T_db, T_dew, SLP, WS, WD, RH]
+
+    In the real library this is replaced by:
+        from cudaq_qrc.data.loader import load_isd_range
+        df = load_isd_range(2019, 2024)
+    """
+    rng = np.random.default_rng(seed)
+    t   = np.arange(n_hours)
+
+    # Diurnal + synoptic base
+    T_db = (15.0
+            + 8.0  * np.sin(2 * np.pi * t / 24 - np.pi / 2)   # diurnal
+            + 3.0  * np.sin(2 * np.pi * t / (24 * 7))          # weekly
+            + rng.normal(0, 0.5, n_hours))                      # micro-noise
+
+    # Inject Lorenz-63 chaos into T_db so QRC has something to learn
+    lorenz_x = generate_lorenz63(n_hours, seed=seed)[:, 0]
+    lorenz_x = (lorenz_x - lorenz_x.mean()) / lorenz_x.std()
+    T_db    += 1.2 * lorenz_x
+
+    T_dew = T_db - 5.0  + rng.normal(0, 0.3, n_hours)
+    SLP   = 1013.25     + 5.0 * np.sin(2 * np.pi * t / (24 * 3.5)) + rng.normal(0, 0.8, n_hours)
+    WS    = np.abs(5.0  + rng.normal(0, 2.0, n_hours))
+    WD    = (180.0      + 60.0 * np.sin(2 * np.pi * t / 24) + rng.normal(0, 20, n_hours)) % 360
+    RH    = np.clip(70.0 - 0.5 * (T_db - T_dew) * 10 + rng.normal(0, 5, n_hours), 5, 100)
+
+    data = np.stack([T_db, T_dew, SLP, WS, WD, RH], axis=1)
+    print(f"  [Data] Synthetic weather: shape={data.shape}, "          f"T_db range=[{T_db.min():.1f}, {T_db.max():.1f}]°C")
+    return data
+
+
+def generate_lorenz63(n_steps: int = 5000, dt: float = 0.01, seed: int = 42) -> np.ndarray:
+    """
+    5000-step Lorenz-63 trajectory via RK45.
+    σ=10, ρ=28, β=8/3.  Returns shape (n_steps, 3).
+
+    In the real library:
+        from cudaq_qrc.data.lorenz import generate_lorenz63
+    """
+    rng0  = np.random.default_rng(seed)
+    y0    = rng0.uniform(-1, 1, 3)
+    sigma, rho, beta = 10.0, 28.0, 8.0 / 3.0
+
+    def lorenz(t, y):
+        x, y_, z = y
+        return [sigma * (y_ - x), x * (rho - z) - y_, x * y_ - beta * z]
+
+    t_span = (0, n_steps * dt)
+    t_eval = np.linspace(0, n_steps * dt, n_steps)
+    sol    = solve_ivp(lorenz, t_span, y0, method="RK45", t_eval=t_eval,
+                       rtol=1e-9, atol=1e-9)
+    traj   = sol.y.T   # (n_steps, 3)
+    return traj
+
+
+def build_features(data: np.ndarray) -> np.ndarray:
+    """
+    Add 3 physics-derived features: θ (potential temp), VPD, u-wind, v-wind.
+    Input:  (n, 6) → [T_db, T_dew, SLP, WS, WD, RH]
+    Output: (n, 9) → add [theta, VPD, u, v]  (drop WD, keep WS for u/v)
+
+    In the real library:
+        from cudaq_qrc.data.preprocessor import build_features
+    """
+    T_db, T_dew, SLP, WS, WD, RH = [data[:, i] for i in range(6)]
+
+    # Potential temperature (Poisson's equation, p0=1000 hPa)
+    theta = (T_db + 273.15) * (1000.0 / SLP) ** 0.286 - 273.15
+
+    # Vapour pressure deficit (Magnus formula, Alduchov & Eskridge 1996)
+    e_s   = 6.1078 * np.exp(17.2694 * T_db  / (T_db  + 237.3))
+    e_a   = 6.1078 * np.exp(17.2694 * T_dew / (T_dew + 237.3))
+    VPD   = e_s - e_a
+
+    # Wind components
+    WD_rad = np.deg2rad(WD)
+    u = -WS * np.sin(WD_rad)
+    v = -WS * np.cos(WD_rad)
+
+    # Final 9 features: T_db, T_dew, SLP, WS, RH, theta, VPD, u, v
+    out = np.stack([T_db, T_dew, SLP, WS, RH, theta, VPD, u, v], axis=1)
+    print(f"  [Preprocess] build_features: {data.shape} → {out.shape}")
+    return out
+
+
+def preprocess(data9: np.ndarray, W: int = 24, horizons: list = None,
+               val_frac: float = 0.15, test_frac: float = 0.10,
+               target_col: str = "T_db") -> dict:
+    """
+    Full preprocessing pipeline:
+      1. Compute climatological normals on TRAIN ONLY
+      2. Deseasonalise + standardise (fit on train, apply to all)
+      3. Sliding windows: X (n, W, 9), y (n, len(horizons))
+      4. Return target_col_idx explicitly
+
+    In the real library:
+        from cudaq_qrc.data.preprocessor import preprocess
+        result = preprocess(df, W=24, horizons=[1, 6])
+    """
+    if horizons is None:
+        horizons = [1, 6]
+
+    N = len(data9)
+    n_test = int(N * test_frac)
+    n_val  = int(N * val_frac)
+    n_train = N - n_val - n_test
+
+    # ── Temporal split (strict, no shuffle) ──────────────────────────────────
+    train_raw = data9[:n_train]
+    val_raw   = data9[n_train:n_train + n_val]
+    test_raw  = data9[n_train + n_val:]
+
+    # ── Climatological normals on TRAIN ONLY ─────────────────────────────────
+    # (In the real library: indexed by (month, day, hour). Here: per-hour-of-day.)
+    hours_train = np.arange(n_train) % 24
+    normals_mean = np.array([train_raw[hours_train == h].mean(axis=0) for h in range(24)])
+    normals_std  = np.array([train_raw[hours_train == h].std(axis=0)  for h in range(24)])
+    normals_std  = np.maximum(normals_std, 1e-6)
+
+    def deseasonalise(arr):
+        out = arr.copy()
+        for i, row in enumerate(arr):
+            h = i % 24
+            out[i] = (row - normals_mean[h]) / normals_std[h]
+        return out
+
+    train_anom = deseasonalise(train_raw)
+    val_anom   = deseasonalise(val_raw)
+    test_anom  = deseasonalise(test_raw)
+
+    # ── StandardScaler fit on TRAIN anomalies only ───────────────────────────
+    scaler = StandardScaler()
+    train_sc = scaler.fit_transform(train_anom)
+    val_sc   = scaler.transform(val_anom)
+    test_sc  = scaler.transform(test_anom)
+
+    # ── target_col_idx ───────────────────────────────────────────────────────
+    feature_cols = ["T_db", "T_dew", "SLP", "WS", "RH", "theta", "VPD", "u", "v"]
+    target_col_idx = feature_cols.index(target_col)  # must be 0 for T_db
+
+    # ── Sliding windows ───────────────────────────────────────────────────────
+    def make_windows(arr, max_h):
+        max_look = max(horizons)
+        X_list, y_list = [], []
+        for i in range(W, len(arr) - max_look + 1):
+            window = arr[i - W:i]           # (W, 9) — lookback
+            targets = np.array([arr[i + h - 1, target_col_idx] for h in horizons])
+            if not (np.isnan(window).any() or np.isnan(targets).any()):
+                X_list.append(window)
+                y_list.append(targets)
+        return np.array(X_list), np.array(y_list)
+
+    X_train, y_train = make_windows(train_sc, max(horizons))
+    X_val,   y_val   = make_windows(val_sc,   max(horizons))
+    X_test,  y_test  = make_windows(test_sc,  max(horizons))
+
+    # ── Shape assertions (must pass — if not, pipeline is broken) ─────────────
+    assert X_train.ndim == 3 and X_train.shape[1] == W and X_train.shape[2] == 9, \
+        f"X_train shape wrong: {X_train.shape}, expected (n, {W}, 9)"
+    assert y_train.ndim == 2 and y_train.shape[1] == len(horizons), \
+        f"y_train shape wrong: {y_train.shape}, expected (n, {len(horizons)})"
+
+    print(f"  [Preprocess] X_train={X_train.shape}, y_train={y_train.shape}")
+    print(f"  [Preprocess] X_val={X_val.shape}, X_test={X_test.shape}")
+    print(f"  [Preprocess] target_col_idx={target_col_idx} ('{target_col}')")
+
+    return {
+        "X_train": X_train, "y_train": y_train,
+        "X_val":   X_val,   "y_val":   y_val,
+        "X_test":  X_test,  "y_test":  y_test,
+        "scaler":  scaler,
+        "target_col_idx": target_col_idx,
+        "feature_cols": feature_cols,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 2 — ENCODING: MULTIPLE FEATURE MAPS
+# ══════════════════════════════════════════════════════════════════════════════
+
+class BaseEncoder:
+    """Base class for all quantum encoders."""
+    def __init__(self, n_qubits: int = 12, n_layers: int = 3):
+        self.n_qubits = n_qubits
+        self.n_layers = n_layers
+        self.pairs    = list(combinations(range(n_qubits), 2))
+
+    def scale_to_pi(self, x: np.ndarray) -> np.ndarray:
+        lo, hi = x.min(), x.max()
+        if hi - lo < 1e-8:
+            return np.full_like(x, np.pi / 2)
+        return np.pi * (x - lo) / (hi - lo)
+
+    def encode(self, x_scaled: np.ndarray, dev) -> None:
+        raise NotImplementedError
+
+
+class ZZFeatureMap(BaseEncoder):
+    """ZZ Feature Map (Havlíček et al. 2019). H -> RZ -> IsingZZ."""
+    def encode(self, x_scaled: np.ndarray, dev) -> None:
+        for i in range(self.n_qubits):
+            qml.Hadamard(wires=i)
+        for i in range(self.n_qubits):
+            qml.RZ(float(x_scaled[i % len(x_scaled)]), wires=i)
+        for j, k in self.pairs:
+            phi_jk = (np.pi - float(x_scaled[j % len(x_scaled)])) * \
+                     (np.pi - float(x_scaled[k % len(x_scaled)]))
+            qml.IsingZZ(phi_jk, wires=[j, k])
+
+
+class AngleEmbeddingEncoder(BaseEncoder):
+    """PennyLane AngleEmbedding with RY rotations + light CNOT entanglement."""
+    def encode(self, x_scaled: np.ndarray, dev) -> None:
+        for layer in range(self.n_layers):
+            for i in range(self.n_qubits):
+                qml.RY(float(x_scaled[i % len(x_scaled)]), wires=i)
+            for j in range(0, self.n_qubits - 1, 2):
+                qml.CNOT(wires=[j, j + 1])
+
+
+class AmplitudeEmbeddingEncoder(BaseEncoder):
+    """AmplitudeEmbedding: encodes 2^n features into n-qubit amplitudes."""
+    def encode(self, x_scaled: np.ndarray, dev) -> None:
+        n = self.n_qubits
+        required = 2 ** n
+        x = np.array(x_scaled, dtype=np.float64)
+        if len(x) < required:
+            x = np.pad(x, (0, required - len(x)), mode='edge')
+        elif len(x) > required:
+            x = x[:required]
+        norm = np.linalg.norm(x)
+        if norm < 1e-12:
+            x = np.ones(required) / np.sqrt(required)
+        else:
+            x = x / norm
+        qml.AmplitudeEmbedding(x, wires=range(n), normalize=False)
+
+
+class RXRYRZEncoder(BaseEncoder):
+    """Three-axis rotation: RX->RY->RZ per qubit, then CNOT pairs."""
+    def encode(self, x_scaled: np.ndarray, dev) -> None:
+        for i in range(self.n_qubits):
+            val = float(x_scaled[i % len(x_scaled)])
+            qml.RX(val, wires=i)
+            qml.RY(val, wires=i)
+            qml.RZ(val, wires=i)
+        for j, k in self.pairs:
+            qml.CNOT(wires=[j, k])
+
+
+ENCODER_REGISTRY = {
+    "zz": ZZFeatureMap,
+    "angle": AngleEmbeddingEncoder,
+    "amplitude": AmplitudeEmbeddingEncoder,
+    "rxryrz": RXRYRZEncoder,
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 3 — RESERVOIR: TFIM (12 Qubits, Configurable)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class AtmosphericQRC:
+    """
+    Transverse-Field Ising Model (TFIM) quantum reservoir.
+    Configurable: n_qubits, encoder, readout_mode (single/two-body).
+    """
+
+    def __init__(self, n_qubits: int = 12, n_layers: int = 3,
+                 trotter_steps: int = 10, tau: float = 1.0, seed: int = 42,
+                 encoder_name: str = "zz", readout_mode: str = "two"):
+        self.n_qubits      = n_qubits
+        self.n_layers      = n_layers
+        self.trotter_steps = trotter_steps
+        self.tau           = tau
+        self.seed          = seed
+        self.dt            = tau / trotter_steps
+        self.pairs         = list(combinations(range(n_qubits), 2))
+        self.encoder_name  = encoder_name
+        self.readout_mode  = readout_mode
+
+        # Feature count
+        n_pairs = len(self.pairs)
+        self.n_single = 3 * n_qubits
+        self.n_two    = 3 * n_pairs
+        if readout_mode == "single":
+            self.n_features = self.n_single
+        else:
+            self.n_features = self.n_single + self.n_two
+        print(f"  [Reservoir] Readout: {readout_mode} -> {self.n_features} features "
+              f"({self.n_single} sb + {self.n_two} tb)")
+
+        # Hamiltonian params
+        rng = np.random.default_rng(seed)
+        self.h  = rng.uniform(-1.0,  1.0,  n_qubits)
+        self.g  = rng.uniform( 0.5,  1.5,  n_qubits)
+        J_raw   = rng.uniform(-1.0,  1.0,  (n_qubits, n_qubits))
+        J_sym   = (J_raw + J_raw.T) / 2
+        self.J  = {(i, j): J_sym[i, j] for i, j in self.pairs}
+
+        # Critical-point normalization
+        J_vals = np.abs(list(self.J.values()))
+        g_vals = self.g
+        scale = g_vals.mean() / (J_vals.mean() + 1e-12)
+        for key in self.J:
+            self.J[key] *= scale
+        J_vals = np.abs(list(self.J.values()))
+        self.jg_ratio = float(J_vals.mean() / g_vals.mean())
+        print(f"  [Reservoir] J/g ratio: {self.jg_ratio:.3f} (target ~1.0)")
+
+        # Encoder
+        enc_cls = ENCODER_REGISTRY.get(encoder_name, ZZFeatureMap)
+        self.encoder = enc_cls(n_qubits=n_qubits, n_layers=n_layers)
+        print(f"  [Reservoir] Encoder: {encoder_name}")
+
+        # Device
+        if HAS_PENNYLANE:
+            try:
+                self.dev = qml.device("lightning.qubit", wires=n_qubits)
+                print(f"  [Reservoir] Backend: lightning.qubit ({n_qubits}q, Trotter={trotter_steps})")
+            except Exception:
+                self.dev = qml.device("default.qubit", wires=n_qubits)
+                print(f"  [Reservoir] Backend: default.qubit")
+        else:
+            self.dev = None
+
+        if HAS_PENNYLANE:
+            self._build_qnode()
+
+        two_q_gates = n_layers * trotter_steps * (n_pairs + n_qubits - 1)
+        print(f"  [Reservoir] Est. 2-qubit gates: ~{two_q_gates}")
+
+    def _build_qnode(self):
+        enc = self.encoder
+        h_par, g_par, J_par = self.h, self.g, self.J
+        dt, steps, nq = self.dt, self.trotter_steps, self.n_qubits
+        pairs, mode = self.pairs, self.readout_mode
+
+        @qml.qnode(self.dev, interface="numpy", diff_method=None)
+        def circuit(x_window):
+            for ell in range(enc.n_layers):
+                t_idx = (ell * (len(x_window) // enc.n_layers)) % len(x_window)
+                x_slice = x_window[t_idx, :nq]
+                x_scaled = enc.scale_to_pi(x_slice)
+                enc.encode(x_scaled, self.dev)
+                for _ in range(steps):
+                    for i in range(nq):
+                        qml.RX(2.0 * g_par[i] * dt, wires=i)
+                    for i in range(nq):
+                        qml.RZ(2.0 * h_par[i] * dt, wires=i)
+                    for (i, j) in pairs:
+                        qml.CNOT(wires=[i, j])
+                        qml.RZ(2.0 * J_par[(i, j)] * dt, wires=j)
+                        qml.CNOT(wires=[i, j])
+            obs_sb = (
+                [qml.expval(qml.PauliX(i)) for i in range(nq)] +
+                [qml.expval(qml.PauliY(i)) for i in range(nq)] +
+                [qml.expval(qml.PauliZ(i)) for i in range(nq)]
+            )
+            if mode == "single":
+                return obs_sb
+            obs_tb = []
+            for (i, j) in pairs:
+                obs_tb += [
+                    qml.expval(qml.PauliZ(i) @ qml.PauliZ(j)),
+                    qml.expval(qml.PauliX(i) @ qml.PauliX(j)),
+                    qml.expval(qml.PauliY(i) @ qml.PauliY(j)),
+                ]
+            return obs_sb + obs_tb
+        self._circuit = circuit
+
+    def _mock_transform(self, X: np.ndarray) -> np.ndarray:
+        rng = np.random.default_rng(self.seed)
+        W_in = rng.normal(0, 1, (X.shape[1] * X.shape[2], self.n_features))
+        n = X.shape[0]
+        X_flat = X.reshape(n, -1)
+        return np.tanh(X_flat @ W_in)
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        n = X.shape[0]
+        if not HAS_PENNYLANE or self.dev is None:
+            features = self._mock_transform(X)
+        else:
+            features = np.zeros((n, self.n_features))
+            for idx in range(n):
+                x_win = X[idx]
+                raw = self._circuit(x_win[:, :self.n_qubits])
+                features[idx] = np.array(raw)
+        assert features.shape == (n, self.n_features), \
+            f"Expected (n, {self.n_features}) got {features.shape}"
+        span = features.max() - features.min()
+        assert span > 0.01, f"Feature range only {span:.4f}"
+        return features
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — READOUT: KRR (Dynamic Features)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class KRRReadout:
+    """
+    Kernel Ridge Regression readout with RBF kernel.
+    Works with any feature dimension (36 for N=12 single-body, 222 for two-body).
+    """
+
+    GAMMA_GRID = [0.001, 0.01, 0.05, 0.1, 0.5, 1.0]
+    ALPHA_GRID = list(np.logspace(-6, -1, 6))
+
+    def __init__(self):
+        self.model        = None
+        self.best_gamma   = None
+        self.best_alpha   = None
+
+    def fit(self, F_train: np.ndarray, y_train: np.ndarray,
+            horizon_idx: int = 0, target_col_idx: int = 0) -> None:
+        """
+        F_train: (n, d) reservoir features, d = n_features
+        y_train: (n, n_horizons) targets
+        """
+        y = y_train[:, horizon_idx]
+        tscv = TimeSeriesSplit(n_splits=5)
+
+        best_val_rmse = np.inf
+        for gamma in self.GAMMA_GRID:
+            for alpha in self.ALPHA_GRID:
+                val_rmses = []
+                for train_idx, val_idx in tscv.split(F_train):
+                    m = KernelRidge(kernel="rbf", gamma=gamma, alpha=alpha)
+                    m.fit(F_train[train_idx], y[train_idx])
+                    pred = m.predict(F_train[val_idx])
+                    val_rmses.append(rmse(y[val_idx], pred))
+                avg = float(np.mean(val_rmses))
+                if avg < best_val_rmse:
+                    best_val_rmse  = avg
+                    self.best_gamma = gamma
+                    self.best_alpha = alpha
+
+        self.model = KernelRidge(kernel="rbf",
+                                 gamma=self.best_gamma,
+                                 alpha=self.best_alpha)
+        self.model.fit(F_train, y)
+        print(f"  [KRR h={horizon_idx+1}h] best gamma={self.best_gamma}, "
+              f"alpha={self.best_alpha:.2e}, val_RMSE={best_val_rmse:.4f}")
+
+    def predict(self, F: np.ndarray) -> np.ndarray:
+        assert self.model is not None, "Call fit() before predict()"
+        return self.model.predict(F)
+
+    """
+    Kernel Ridge Regression readout with RBF kernel.
+
+    Hyperparameter grid (finer than default — optimal gamma often 0.01–0.1
+    for 108-dimensional features):
+      gamma ∈ {0.001, 0.01, 0.05, 0.1, 0.5, 1.0}
+      alpha ∈ logspace(-6, -1, 6)  =  {1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 0.1}
+
+    Cross-validation: TimeSeriesSplit(n_splits=5)
+    NEVER use random KFold on weather data — temporal leakage destroys validity.
+
+    In the real library:
+        from cudaq_qrc.readout import KRRReadout
+    """
+
+    GAMMA_GRID = [0.001, 0.01, 0.05, 0.1, 0.5, 1.0]
+    ALPHA_GRID = list(np.logspace(-6, -1, 6))
+
+    def __init__(self):
+        self.model        = None
+        self.best_gamma   = None
+        self.best_alpha   = None
+
+    def fit(self, F_train: np.ndarray, y_train: np.ndarray,
+            horizon_idx: int = 0, target_col_idx: int = 0) -> None:
+        """
+        F_train:       (n, 108) reservoir features
+        y_train:       (n, n_horizons) targets
+        horizon_idx:   which horizon column to fit on (0=1h, 1=6h)
+        target_col_idx: passed through from preprocess() — not used in readout
+                        directly but logged for reproducibility
+        """
+        y = y_train[:, horizon_idx]
+        tscv = TimeSeriesSplit(n_splits=5)
+
+        best_val_rmse = np.inf
+        for gamma in self.GAMMA_GRID:
+            for alpha in self.ALPHA_GRID:
+                val_rmses = []
+                for train_idx, val_idx in tscv.split(F_train):
+                    m = KernelRidge(kernel="rbf", gamma=gamma, alpha=alpha)
+                    m.fit(F_train[train_idx], y[train_idx])
+                    pred      = m.predict(F_train[val_idx])
+                    val_rmses.append(rmse(y[val_idx], pred))
+                avg = float(np.mean(val_rmses))
+                if avg < best_val_rmse:
+                    best_val_rmse  = avg
+                    self.best_gamma = gamma
+                    self.best_alpha = alpha
+
+        # Refit on full training set with best params
+        self.model = KernelRidge(kernel="rbf",
+                                 gamma=self.best_gamma,
+                                 alpha=self.best_alpha)
+        self.model.fit(F_train, y)
+        print(f"  [KRR h={horizon_idx+1}h] best gamma={self.best_gamma}, "              f"alpha={self.best_alpha:.2e}, val_RMSE={best_val_rmse:.4f}")
+
+    def predict(self, F: np.ndarray) -> np.ndarray:
+        """F: (n, 108) → predictions: (n,)"""
+        assert self.model is not None, "Call fit() before predict()"
+        return self.model.predict(F)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 5 — ARCHITECTURE: DIRECT vs RESIDUAL
+# ══════════════════════════════════════════════════════════════════════════════
+
+class DirectQRC:
+    """
+    Baseline architecture: ŷ_{t+h} = KRR(Reservoir(encode(X)))
+    Predict absolute temperature directly from reservoir features.
+    Exists only for ablation comparison against ResidualQRC.
+
+    In the real library:
+        from cudaq_qrc.architecture import DirectQRC
+    """
+
+    def __init__(self, qrc: AtmosphericQRC, target_col_idx: int):
+        self.qrc           = qrc
+        self.target_col_idx = target_col_idx
+        self.readouts      = {}   # one KRR per horizon
+
+    def fit(self, X_train, y_train, X_val=None, y_val=None) -> None:
+        print("  [DirectQRC] Extracting features...")
+        F_train = self.qrc.transform(X_train)
+        for h_idx in range(y_train.shape[1]):
+            krr = KRRReadout()
+            krr.fit(F_train, y_train, horizon_idx=h_idx,
+                    target_col_idx=self.target_col_idx)
+            self.readouts[h_idx] = krr
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        F    = self.qrc.transform(X)
+        preds = np.stack([self.readouts[h].predict(F)
+                         for h in range(len(self.readouts))], axis=1)
+        assert preds.shape[1] == len(self.readouts), "Prediction shape mismatch"
+        return preds   # (n, n_horizons)
+
+
+class ResidualQRC:
+    """
+    Novel residual architecture (core innovation):
+
+        ŷ_{t+h} = y_t  +  QRC(ε_{t-W+1:t})
+
+    where  y_t  = current temperature (persistence)
+           ε_t  = first-difference residual (the chaotic component)
+
+    Why this wins:
+    - At 1h horizon, persistence explains ~90% of variance.
+      The QRC only needs to learn the remaining 10% — the "hard part."
+    - Reduces effective target variance → improves KRR conditioning.
+    - Mirrors Zhang (2003) residual decomposition, extended to quantum systems.
+    - The JonesTrading audience sees the GARCH analogy immediately:
+      persistence ↔ HAR base, QRC ↔ quantum volatility residual.
+
+    CRITICAL FIX vs proposal code:
+    - Old (buggy):  persist = X_raw[:, -1, 0]  ← hardcoded index 0
+    - New (correct): persist = X_raw[:, -1, self.target_col_idx]  ← explicit
+
+    In the real library:
+        from cudaq_qrc.architecture import ResidualQRC
+    """
+
+    def __init__(self, qrc: AtmosphericQRC, target_col_idx: int):
+        self.qrc            = qrc
+        self.target_col_idx = target_col_idx   # index of T_db in feature vector
+        self.readouts       = {}
+
+    def _build_residual_targets(self, X_raw, y_raw):
+        """
+        X_raw: (n, W, 9)  — raw (scaled) input windows
+        y_raw: (n, 2)     — absolute temperature targets for each horizon
+
+        Returns:
+          persist:   (n, 1) — last T_db value in the window (persistence baseline)
+          residuals: (n, 2) — target deviations from persistence
+        """
+        # CORRECT: use explicit target_col_idx, NOT hardcoded 0
+        persist  = X_raw[:, -1, self.target_col_idx][:, np.newaxis]  # (n, 1)
+        residuals = y_raw - persist                                    # (n, 2)
+        return persist, residuals
+
+    def fit(self, X_train, y_train, X_val=None, y_val=None) -> None:
+        print("  [ResidualQRC] Building residual targets...")
+        persist_tr, residuals_tr = self._build_residual_targets(X_train, y_train)
+
+        print("  [ResidualQRC] Extracting features...")
+        F_train = self.qrc.transform(X_train)
+
+        for h_idx in range(y_train.shape[1]):
+            krr = KRRReadout()
+            krr.fit(F_train, residuals_tr, horizon_idx=h_idx,
+                    target_col_idx=self.target_col_idx)
+            self.readouts[h_idx] = krr
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        X: (n, W, 9) → predictions: (n, n_horizons)
+        Each prediction = persistence + learned residual correction
+        """
+        persist = X[:, -1, self.target_col_idx][:, np.newaxis]  # (n, 1)
+        F       = self.qrc.transform(X)
+        residual_preds = np.stack([self.readouts[h].predict(F)
+                                  for h in range(len(self.readouts))], axis=1)
+        return persist + residual_preds   # (n, n_horizons)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 6 — METRICS
+# ══════════════════════════════════════════════════════════════════════════════
+
+def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+
+def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.mean(np.abs(y_true - y_pred)))
+
+def nrmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return rmse(y_true, y_pred) / (float(np.std(y_true)) + 1e-8)
+
+def skill_score(y_true: np.ndarray, y_pred: np.ndarray,
+                y_baseline: np.ndarray) -> float:
+    """Skill vs baseline (1 = perfect, 0 = same as baseline, negative = worse)"""
+    return float(1.0 - rmse(y_true, y_pred) / (rmse(y_true, y_baseline) + 1e-8))
+
+def fsdh(y_true: np.ndarray, y_pred_model: np.ndarray,
+         y_pred_persist: np.ndarray) -> int:
+    """
+    Returns 1 if model beats persistence at this horizon, else 0.
+    Called per-horizon by compute_fsdh_curve().
+    """
+    return int(rmse(y_true, y_pred_model) < rmse(y_true, y_pred_persist))
+
+def compute_fsdh_curve(y_true_horizons: np.ndarray,
+                       y_model_horizons: np.ndarray,
+                       y_persist_horizons: np.ndarray) -> int:
+    """
+    FSDH = max { h : RMSE_model(h) < RMSE_persist(h) }
+
+    Args:
+      y_*_horizons: shape (n_samples, max_horizon) — one col per hour
+    Returns:
+      Integer hours. 0 if model never beats persistence.
+
+    This is the primary operational metric:
+      "My QRC model is useful for X hours ahead."
+    """
+    max_h    = y_true_horizons.shape[1]
+    fsdh_val = 0
+    for h in range(max_h):
+        if fsdh(y_true_horizons[:, h],
+                y_model_horizons[:, h],
+                y_persist_horizons[:, h]):
+            fsdh_val = h + 1   # 1-indexed hours
+
+    # Type assertion — must be int, not bool, not float
+    assert isinstance(fsdh_val, int), f"FSDH returned {type(fsdh_val)}, expected int"
+    return fsdh_val
+
+def measure_memory_capacity(qrc: AtmosphericQRC,
+                            max_lag: int = 20,
+                            n_samples: int = 300,
+                            W: int = 24) -> dict:
+    """
+    Linear memory capacity (Jaeger 2001):
+      MC = Σ_k Cov²(u_{t-k}, ŷ_{t-k}) / [Var(u) · Var(ŷ)]
+
+    FIXED vs proposal: uses 24h windows (W=24, shape (n, W, n_qubits))
+    NOT single-step windows (shape (n, 1, n_qubits)).
+    Must match real inference window size or numbers are meaningless.
+
+    Target: MC > N/2 = 4 for N=8 at the critical point.
+    """
+    nq  = qrc.n_qubits
+    rng = np.random.default_rng(0)
+
+    # Drive with iid Gaussian, shape (n_samples, W, n_qubits)
+    u_full = rng.normal(0, 1.0, size=(n_samples, W, nq))
+    u_scalar = u_full[:, -1, 0]   # scalar target: last time step, first feature
+
+    R = qrc.transform(u_full)   # (n_samples, 108)
+
+    per_lag = []
+    for k in range(1, max_lag + 1):
+        if k >= n_samples:
+            break
+        R_sub = R[k:]
+        u_sub = u_scalar[:n_samples - k]
+        reg   = Ridge(alpha=1e-4).fit(R_sub, u_sub)
+        pred  = reg.predict(R_sub)
+        r2    = float(np.corrcoef(u_sub, pred)[0, 1] ** 2)
+        per_lag.append(r2)
+
+    mc = float(np.sum(per_lag))
+    if mc < qrc.n_qubits / 2:
+        print(f"  [MC] WARNING: MC={mc:.3f} < N/2={qrc.n_qubits/2}. "              f"J/g may not be at critical point (current: {qrc.jg_ratio:.3f})")
+    else:
+        print(f"  [MC] Memory Capacity = {mc:.3f}  (target > {qrc.n_qubits/2})")
+    return {"MC": mc, "per_lag": per_lag}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 7 — BASELINES
+# ══════════════════════════════════════════════════════════════════════════════
+
+class PersistenceBaseline:
+    """
+    ŷ_{t+h} = y_t for all h.
+    The floor that FSDH compares against. At 1h, RMSE ≈ 0.3–0.7°C on real KORD data.
+    If QRC can't beat this, FSDH = 0 and the approach fails.
+    """
+    def __init__(self, target_col_idx: int = 0):
+        self.target_col_idx = target_col_idx
+
+    def fit(self, X_train, y_train): pass   # no training needed
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        # Replicate last observed value for all horizons
+        persist = X[:, -1, self.target_col_idx]   # (n,)
+        return np.stack([persist, persist], axis=1)  # (n, 2) — same for both horizons
+
+
+class ARIMABaseline:
+    """
+    ARIMA(2,1,2) via statsmodels.
+    Tests whether simple linear statistics capture the signal before QRC adds anything.
+    Fit on training target series; predict iteratively.
+    """
+    def __init__(self):
+        self.model_fits = {}
+
+    def fit(self, X_train, y_train):
+        try:
+            from statsmodels.tsa.arima.model import ARIMA
+            train_series = y_train[:, 0]
+            for h_idx in range(y_train.shape[1]):
+                mdl = ARIMA(y_train[:, h_idx], order=(2, 1, 2))
+                self.model_fits[h_idx] = mdl.fit()
+        except ImportError:
+            print("  [ARIMA] statsmodels not installed — skipping ARIMA baseline")
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        n = X.shape[0]
+        preds = np.zeros((n, 2))
+        for h_idx, fit in self.model_fits.items():
+            try:
+                fc = fit.forecast(steps=n)
+                preds[:, h_idx] = fc[:n]
+            except Exception:
+                preds[:, h_idx] = np.nan
+        return preds
+
+
+class ESNBaseline:
+    """
+    Echo State Network via reservoirpy.
+    The critical comparison: QRC (8 qubits, 108 features) must outperform
+    ESN(500 nodes) on 1h horizon to justify quantum resources.
+    ESN(5000 nodes) sets the classical ceiling.
+    """
+    def __init__(self, nodes: int = 500, seed: int = 42):
+        self.nodes  = nodes
+        self.seed   = seed
+        self.models = {}
+        self._has_rpy = False
+        try:
+            import reservoirpy as rpy
+            rpy.verbosity(0)
+            self._rpy = rpy
+            self._has_rpy = True
+        except ImportError:
+            print(f"  [ESN-{nodes}] reservoirpy not installed — using Ridge fallback")
+
+    def fit(self, X_train, y_train):
+        n = X_train.shape[0]
+        X_flat = X_train.reshape(n, -1)   # (n, W*9)
+
+        if self._has_rpy:
+            from reservoirpy.nodes import Reservoir, Ridge as RpyRidge
+            for h_idx in range(y_train.shape[1]):
+                res = Reservoir(self.nodes, sr=0.9, lr=0.3, seed=self.seed)
+                ro  = RpyRidge(ridge=1e-4)
+                esn = res >> ro
+                esn.fit(X_flat[:, :, np.newaxis] if X_flat.ndim == 2 else X_flat,
+                        y_train[:, h_idx:h_idx+1], warmup=10)
+                self.models[h_idx] = esn
+        else:
+            # Ridge fallback — much weaker but lets the demo run
+            for h_idx in range(y_train.shape[1]):
+                m = Ridge(alpha=1e-4)
+                m.fit(X_flat, y_train[:, h_idx])
+                self.models[h_idx] = m
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        n = X.shape[0]
+        X_flat = X.reshape(n, -1)
+        preds = np.zeros((n, len(self.models)))
+        for h_idx, m in self.models.items():
+            if self._has_rpy:
+                out = m.run(X_flat[:, :, np.newaxis] if X_flat.ndim == 2 else X_flat)
+                preds[:, h_idx] = np.array(out).reshape(n)
+            else:
+                preds[:, h_idx] = m.predict(X_flat)
+        return preds
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 8 — EXPERIMENT RUNNER: ENCODER x READOUT SWEEP
+# ══════════════════════════════════════════════════════════════════════════════
+def timing_benchmark(qrc: AtmosphericQRC, n_samples: int = 10) -> float:
+    dummy = np.random.default_rng(0).normal(size=(1, 24, 9))
+    latencies = []
+    for _ in range(n_samples):
+        t0 = time.perf_counter()
+        qrc.transform(dummy)
+        latencies.append(time.perf_counter() - t0)
+    med = float(np.median(latencies))
+    print(f"  [Benchmark] Median latency: {med:.4f} s  ({'OK' if med < 0.5 else 'SLOW'})")
+    return med
+
+def run_single_config(X_tr, y_tr, X_te, y_te, tci,
+                       n_qubits=12, encoder="zz", readout_mode="two",
+                       trotter_steps=10) -> dict:
+    """Run one (encoder, readout_mode) configuration. Returns results dict."""
+    label = f"QRC-{n_qubits}q-{encoder}-{readout_mode}"
+    sep = "=" * 60
+    print(f"\n{sep}")
+    print(f"  CONFIG: {label}")
+    print(f"{sep}")
+
+    qrc = AtmosphericQRC(n_qubits=n_qubits, n_layers=3,
+                         trotter_steps=trotter_steps, seed=SEED,
+                         encoder_name=encoder, readout_mode=readout_mode)
+
+    print(f"\n  [{label}] Training ResidualQRC...")
+    residual = ResidualQRC(qrc, target_col_idx=tci)
+    residual.fit(X_tr, y_tr)
+    y_residual = residual.predict(X_te)
+
+    persist = PersistenceBaseline(target_col_idx=tci)
+    persist.fit(X_tr, y_tr)
+    y_persist = persist.predict(X_te)
+
+    res = {}
+    for h_idx, h_name in enumerate(["1h", "6h"]):
+        gt = y_te[:, h_idx]
+        res[h_name] = {
+            "rmse": rmse(gt, y_residual[:, h_idx]),
+            "mae":  mae(gt, y_residual[:, h_idx]),
+            "skill": skill_score(gt, y_residual[:, h_idx], y_persist[:, h_idx]),
+        }
+    res["FSDH"] = compute_fsdh_curve(y_te, y_residual, y_persist)
+
+    mc_res = measure_memory_capacity(qrc, max_lag=15, n_samples=100, W=24)
+    res["MC"] = mc_res["MC"]
+
+    print(f"  [{label}] 1h RMSE={res['1h']['rmse']:.4f}  "
+          f"6h RMSE={res['6h']['rmse']:.4f}  FSDH={res['FSDH']}h  MC={res['MC']:.2f}")
+    return res, label
+
+
+def run_full_experiment(use_real_data=True, n_hours=800,
+                        n_qubits=12, trotter_steps=10) -> dict:
+    """
+    Sweep over ALL encoder x readout_mode combinations:
+      Encoders: zz, angle, amplitude, rxryrz
+      Readout:  single-body (3N), two-body (3N + 3*C(N,2))
+    Plus baselines (Persistence, ARIMA, ESN).
+    Returns dict of all results keyed by config label.
+    """
+    sep = "=" * 70
+    print(f"\n{sep}")
+    print("  QRC WEATHER FORECASTING - ENCODER x READOUT SWEEP")
+    print(f"{sep}")
+
+    # -- 1. DATA --
+    print("\n[1/8] Data acquisition...")
+    data_loaded = False
+    if use_real_data:
+        try:
+            df = load_isd_range(DATA_YEARS)
+            core_cols = ['T_db', 'T_dew', 'SLP', 'WS', 'WD', 'RH']
+            data6 = df[core_cols].values.astype(np.float64)
+            print(f"  [Data] Real KORD ISD: shape={data6.shape}, "
+                  f"T_db range=[{data6[:,0].min():.1f}, {data6[:,0].max():.1f}]C")
+            data_loaded = True
+        except Exception as e:
+            print(f"  ! Real data failed ({e}). Falling back to synthetic.")
+    if not data_loaded:
+        data6 = generate_synthetic_weather(n_hours, seed=SEED)
+    data9 = build_features(data6)
+    splits = preprocess(data9, W=24, horizons=[1, 6])
+    X_tr, y_tr = splits["X_train"], splits["y_train"]
+    X_te, y_te = splits["X_test"], splits["y_test"]
+    tci = splits["target_col_idx"]
+
+    # -- 2. BENCHMARK GATE --
+    print("\n[2/8] Benchmark gate...")
+    qrc_test = AtmosphericQRC(n_qubits=n_qubits, n_layers=3,
+                              trotter_steps=trotter_steps, seed=SEED,
+                              encoder_name="zz", readout_mode="two")
+    latency = timing_benchmark(qrc_test, n_samples=3)
+    if latency > 0.5:
+        print("  WARNING: latency > 0.5s - reducing to trotter_steps=5")
+        trotter_steps = 5
+
+    all_results = {}
+
+    # -- 3. SWEEP --
+    encoders_to_test = ["zz", "angle", "amplitude", "rxryrz"]
+    readout_modes = ["single", "two"]
+
+    for enc in encoders_to_test:
+        for mode in readout_modes:
+            try:
+                res, label = run_single_config(
+                    X_tr, y_tr, X_te, y_te, tci,
+                    n_qubits=n_qubits, encoder=enc, readout_mode=mode,
+                    trotter_steps=trotter_steps
+                )
+                all_results[label] = res
+            except Exception as e:
+                print(f"  X {enc}-{mode} FAILED: {e}")
+                all_results[f"QRC-{n_qubits}q-{enc}-{mode}"] = {
+                    "1h": {"rmse": np.nan, "mae": np.nan, "skill": np.nan},
+                    "6h": {"rmse": np.nan, "mae": np.nan, "skill": np.nan},
+                    "FSDH": 0, "MC": 0.0, "error": str(e)
+                }
+
+    # -- 4. BASELINES --
+    sep2 = "=" * 60
+    print(f"\n{sep2}")
+    print("  BASELINES")
+    print(f"{sep2}")
+
+    persistence = PersistenceBaseline(target_col_idx=tci)
+    persistence.fit(X_tr, y_tr)
+    y_persist = persistence.predict(X_te)
+
+    arima = ARIMABaseline()
+    arima.fit(X_tr, y_tr)
+    y_arima = arima.predict(X_te)
+
+    esn500 = ESNBaseline(nodes=500, seed=SEED)
+    esn500.fit(X_tr, y_tr)
+    y_esn = esn500.predict(X_te)
+
+    baseline_res = {}
+    for h_idx, h_name in enumerate(["1h", "6h"]):
+        gt = y_te[:, h_idx]
+        baseline_res[h_name] = {
+            "Persistence": {"rmse": rmse(gt, y_persist[:,h_idx]),
+                            "mae": mae(gt, y_persist[:,h_idx]), "skill": 0.0},
+            "ARIMA":       {"rmse": rmse(gt, y_arima[:,h_idx]),
+                            "mae": mae(gt, y_arima[:,h_idx]),
+                            "skill": skill_score(gt, y_arima[:,h_idx], y_persist[:,h_idx])},
+            "ESN-500":     {"rmse": rmse(gt, y_esn[:,h_idx]),
+                            "mae": mae(gt, y_esn[:,h_idx]),
+                            "skill": skill_score(gt, y_esn[:,h_idx], y_persist[:,h_idx])},
+        }
+    baseline_res["FSDH"] = {
+        "ARIMA": compute_fsdh_curve(y_te, y_arima, y_persist),
+        "ESN-500": compute_fsdh_curve(y_te, y_esn, y_persist),
+        "Persistence": 0,
+    }
+    all_results["BASELINES"] = baseline_res
+
+    return all_results
+
+
+# SECTION 9 — FIGURES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def plot_all_figures(results: dict, save_dir: str = ".") -> None:
+    """
+    Generate all 6 paper figures from experiment results.
+    Saves each as PNG.
+    """
+    import os
+    os.makedirs(save_dir, exist_ok=True)
+    plt.style.use("dark_background")
+    CYAN, GREEN, RED, AMBER = "#38bdf8", "#4ade80", "#f87171", "#fbbf24"
+
+    # ── Figure 5: Results comparison table ────────────────────────────────────
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle("Figure 5 — QRC vs Baselines: RMSE at 1h and 6h horizon",
+                 fontsize=13, color="white")
+
+    for ax, h_name in zip(axes, ["1h", "6h"]):
+        models = list(results[h_name].keys())
+        rmses  = [results[h_name][m]["rmse"] for m in models]
+        colors = [GREEN if "Residual" in m else
+                  CYAN  if "Direct"   in m else
+                  RED   if "Persist"  in m else AMBER for m in models]
+        bars = ax.bar(models, rmses, color=colors, edgecolor="#232830", width=0.6)
+        ax.set_title(f"RMSE at {h_name} horizon", color="white")
+        ax.set_ylabel("RMSE (scaled units)", color="#94a3b8")
+        ax.tick_params(axis="x", rotation=30, colors="#94a3b8")
+        ax.tick_params(axis="y", colors="#94a3b8")
+        for bar, val in zip(bars, rmses):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.002,
+                    f"{val:.4f}", ha="center", va="bottom", fontsize=9, color="white")
+        ax.set_facecolor("#111418")
+
+    fig.patch.set_facecolor("#0b0d11")
+    plt.tight_layout()
+    path = f"{save_dir}/fig5_results_comparison.png"
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"  [Fig 5] Saved → {path}")
+
+    # ── Figure 6: FSDH bar chart ──────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(8, 4))
+    fig.suptitle("Figure 6 — FSDH: Forecast Skill Duration Horizon",
+                 fontsize=13, color="white")
+
+    fsdh_data = results["FSDH"]
+    models     = list(fsdh_data.keys())
+    hours      = [fsdh_data[m] for m in models]
+    colors     = [GREEN if "Residual" in m else
+                  CYAN  if "Direct"   in m else
+                  RED   if "Persist"  in m else AMBER for m in models]
+    bars = ax.bar(models, hours, color=colors, edgecolor="#232830", width=0.5)
+    ax.set_ylabel("Hours model beats persistence (FSDH)", color="#94a3b8")
+    ax.set_title("Higher = model remains useful longer", color="#94a3b8", fontsize=10)
+    for bar, val in zip(bars, hours):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.05,
+                f"{val}h", ha="center", va="bottom", fontsize=11, color="white",
+                fontweight="bold")
+    ax.tick_params(colors="#94a3b8")
+    ax.set_facecolor("#111418")
+    fig.patch.set_facecolor("#0b0d11")
+    plt.tight_layout()
+    path = f"{save_dir}/fig6_fsdh.png"
+    plt.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"  [Fig 6] Saved → {path}")
+
+    # ── Figure 3: Memory capacity per lag ─────────────────────────────────────
+    if "MC_per_lag" in results:
+        fig, ax = plt.subplots(figsize=(9, 4))
+        fig.suptitle("Figure 3 — Memory Capacity per Lag (IPC proxy)",
+                     fontsize=13, color="white")
+        lags = list(range(1, len(results["MC_per_lag"]) + 1))
+        ax.bar(lags, results["MC_per_lag"], color=CYAN, edgecolor="#232830", alpha=0.85)
+        ax.axhline(0, color="#232830", linewidth=0.5)
+        ax.set_xlabel("Lag (hours)", color="#94a3b8")
+        ax.set_ylabel("r² (memory at this lag)", color="#94a3b8")
+        mc_total = results["MC"]
+        n_q      = 8
+        ax.set_title(f"Total MC = {mc_total:.3f}  (target > {n_q/2} for N={n_q})",
+                     color="#94a3b8", fontsize=10)
+        ax.tick_params(colors="#94a3b8")
+        ax.set_facecolor("#111418")
+        fig.patch.set_facecolor("#0b0d11")
+        plt.tight_layout()
+        path = f"{save_dir}/fig3_memory_capacity.png"
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  [Fig 3] Saved → {path}")
+
+    # ── Ablation figure ───────────────────────────────────────────────────────
+    if "ablation" in results:
+        abl = results["ablation"]
+        fig, ax = plt.subplots(figsize=(6, 4))
+        fig.suptitle("Ablation: Single-body vs Two-body Readout (1h RMSE)",
+                     fontsize=12, color="white")
+        vals = [abl["single_body_rmse_1h"], abl["two_body_rmse_1h"]]
+        lbls = ["Single-body\n(24 features)", "Two-body\n(108 features)"]
+        cols = [AMBER, GREEN]
+        bars = ax.bar(lbls, vals, color=cols, edgecolor="#232830", width=0.4)
+        for bar, val in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.001,
+                    f"{val:.4f}", ha="center", va="bottom", fontsize=11, color="white")
+        impr = abl["improvement_pct"]
+        ax.set_title(f"Two-body improves RMSE by {impr:.1f}%", color="#94a3b8", fontsize=10)
+        ax.set_ylabel("RMSE (1h)", color="#94a3b8")
+        ax.tick_params(colors="#94a3b8")
+        ax.set_facecolor("#111418")
+        fig.patch.set_facecolor("#0b0d11")
+        plt.tight_layout()
+        path = f"{save_dir}/fig_ablation_readout.png"
+        plt.savefig(path, dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  [Ablation] Saved → {path}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 10 — SUMMARY PRINTER
+# ══════════════════════════════════════════════════════════════════════════════
+
+def print_summary(results: dict) -> None:
+    """Print sweep results table."""
+    sep = "=" * 70
+    print(f"\n{sep}")
+    print("  RESULTS SUMMARY - ENCODER x READOUT SWEEP")
+    print(f"{sep}")
+
+    qrc_keys = [k for k in results.keys() if k.startswith("QRC-")]
+
+    for h_name in ["1h", "6h"]:
+        print(f"\n  Horizon: {h_name}")
+        print(f"  {'Config':<28} {'RMSE':>8} {'MAE':>8} {'Skill%':>8} {'FSDH':>5} {'MC':>6}")
+        print(f"  {'-'*70}")
+        rows = []
+        for k in qrc_keys:
+            r = results[k]
+            if "error" in r:
+                continue
+            rows.append((k, r[h_name]["rmse"], r[h_name]["mae"],
+                         r[h_name]["skill"], r["FSDH"], r["MC"]))
+        rows.sort(key=lambda x: x[1])
+        for k, rmse_v, mae_v, skill_v, fsdh_v, mc_v in rows:
+            marker = " *" if "zz-two" in k or "angle-two" in k else ""
+            print(f"  {k:<28} {rmse_v:>8.4f} {mae_v:>8.4f} "
+                  f"{skill_v*100:>7.1f}%{marker} {fsdh_v:>4}h {mc_v:>6.2f}")
+
+    if "BASELINES" in results:
+        print(f"\n  BASELINES:")
+        bl = results["BASELINES"]
+        for h_name in ["1h", "6h"]:
+            print(f"\n    {h_name}:")
+            for m, v in bl[h_name].items():
+                print(f"      {m:<12} RMSE={v['rmse']:.4f}  Skill={v['skill']*100:.1f}%")
+        print(f"\n    FSDH: ARIMA={bl['FSDH']['ARIMA']}h  ESN-500={bl['FSDH']['ESN-500']}h")
+
+    print(f"\n{sep}")
+    print("  BEST CONFIG = lowest 1h RMSE with highest FSDH")
+    print(f"{sep}\n")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    print(__doc__)
+
+    # Run full sweep: 4 encoders x 2 readout modes = 8 QRC configs + baselines
+    # Change n_qubits=16 for even more features (but slower)
+    results = run_full_experiment(
+        use_real_data=True,
+        n_hours=800,
+        n_qubits=12,          # 12 qubits: 36 single-body, 222 two-body features
+        trotter_steps=10
+    )
+
+    # Print summary
+    print_summary(results)
+
+    print("\n✓ Full encoder x readout sweep complete.")
+    print("✓ Check summary above for best configuration.")
