@@ -26,6 +26,11 @@ QRCx = "QRCx.__main__:main"
 
 [project.optional-dependencies]
 cuda = ["cudaq>=0.6"]
+# Sprint 2 Phase 2.0b: optional GPU backend for SequentialDissipativeQRC's
+# dense-propagator matmuls (auto-detected, silently falls back to numpy if
+# absent). Unverified in this project's development environment, which has
+# no GPU/CUDA available -- see docs/sprint_log/SPRINT_2_REPORT.md.
+gpu = ["cupy-cuda12x>=13.0"]
 
 [build-system]
 requires = ["setuptools>=68"]

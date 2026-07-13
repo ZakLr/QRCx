@@ -146,8 +146,15 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
 ```
 cudaq_qrc/
 ├── README.md                       # This file
-├── scripts/make_readme_tables.py   # Regenerates the results block above from results/*.json
+├── scripts/
+│   ├── make_readme_tables.py       # Regenerates the results block above from results/*.json
+│   ├── narma10_validation.py       # Sprint 1 NARMA10 micro-validation
+│   ├── narma10_sweep.py            # Sprint 2 Phase 2.1 NARMA10 tuning gate sweep
+│   ├── ipc_mc_characterization.py  # Sprint 2 Phase 2.2 IPC/MC trade-off figure
+│   └── benchmark_sequential_backends.py # Runtime-gate backend benchmark
+├── configs/v5_reference.yaml       # Frozen v5 reservoir config (Sprint 2; PROVISIONAL, gate not passed)
 ├── results/                        # results/*.json — the only source of truth for reported numbers
+├── qrc_figures/                    # Generated figures, incl. fig_ipc_tradeoff.png (Sprint 2)
 ├── docs/
 │   ├── organizer_question.md       # Drafted question re: Dirac-3 requirement, sent via Aqora/Discord
 │   ├── sprint_log/                 # SPRINT_REPORT.md per sprint
@@ -159,25 +166,25 @@ cudaq_qrc/
 └── QRCx/                            # Installable package root
     ├── pyproject.toml               # Pinned deps, build config
     ├── requirements-lock.txt        # Full transitive freeze from a clean install
-    ├── tests/                       # pytest suite (12 tests, all passing)
+    ├── tests/                       # pytest suite, all passing
     └── QRCx/                        # Package source
         ├── config.py                 # ExperimentConfig (n_qubits=12 default)
         ├── pipeline.py                # QRCPipeline orchestrator
         ├── data/
         │   ├── loader.py              # NOAA ISD-Lite download + parse — FROZEN, do not edit
         │   ├── preprocessor.py        # QC → features → climatological anomaly → scale → windows
-        │   └── splits.py              # Strict temporal split, target_col_idx
+        │   ├── splits.py              # Strict temporal split, target_col_idx
+        │   └── narma.py               # NARMA10 generator (reservoir sanity benchmark)
         ├── encoding/zz_feature_map.py # ZZ Feature Map (H→RZ→IsingZZ)
         ├── reservoir/tfim.py          # AtmosphericQRC — v4 windowed TFIM reservoir (PennyLane)
-        ├── reservoir/sequential.py    # SequentialDissipativeQRC — v5 recurrent dissipative reservoir (Sprint 1; 10-qubit runtime-gate fallback, see docs/sprint_log/SPRINT_1_REPORT.md)
+        ├── reservoir/sequential.py    # SequentialDissipativeQRC — v5 recurrent dissipative reservoir (exact propagator default, Trotter kept for hardware-matched runs; multiplexing=V; see SPRINT_1/2_REPORT.md)
         ├── reservoir/sequential_backends.py # qiskit_aer / pennylane_mixed drivers, benchmarked against the numpy backend above
         ├── reservoir/esp_sequential.py # Trace-distance ESP check for the sequential reservoir
-        ├── data/narma.py              # NARMA10 generator (reservoir sanity benchmark)
         ├── readout/correlators.py     # Pauli correlator extraction (234-dim at N=12; *_dm variants for density matrices)
         ├── architecture/              # direct.py, residual.py, parallel.py
         ├── baselines/                 # persistence, arima, esn, gfs
-        ├── metrics/                   # forecast.py (RMSE/MAE/skill/VPT), fsdh.py, reservoir.py (MC/IPC), noise.py
-        └── experiment/                # runner.py, benchmark.py, ablation.py, figures.py
+        ├── metrics/                   # forecast.py (RMSE/MAE/skill/VPT), fsdh.py, reservoir.py (v4 MC/IPC), reservoir_sequential.py (v5 MC/IPC, Jaeger continuous-drive protocol), noise.py
+        └── experiment/                # runner.py, benchmark.py, ablation.py, figures.py, figstyle.py (Sprint 2 academic figure style)
 ```
 
 ---
@@ -202,29 +209,41 @@ cudaq_qrc/
   keeping the v4 hook for ablation. No contradictory noise-sweep prose was
   found elsewhere in this repo during the Sprint 0 audit — nothing else to
   fix here.
-- **`FAST_MODE` not yet implemented**: no experiment script currently
-  accepts a `FAST_MODE` flag. Required for future sprints; not implemented
-  as of Sprint 0.
+- **`FAST_MODE` implemented in Sprint 1/2 scripts, not project-wide**:
+  `scripts/narma10_validation.py`, `scripts/narma10_sweep.py`, and
+  `scripts/ipc_mc_characterization.py` accept `--fast-mode`/
+  `--no-fast-mode`; older experiment entry points (`python -m QRCx`, etc.)
+  do not yet. Extending this project-wide is deferred.
 - **No results yet**: `results/` is empty; the Performance section above is
   intentionally a pending placeholder rather than a fabricated number.
-- **Sequential dissipative reservoir (Sprint 1) does not meet its NARMA10
-  sanity target yet**: `SequentialDissipativeQRC` is implemented, tested,
-  and cross-validated across three independent backends (numpy, Qiskit
-  Aer, PennyLane `default.mixed`, all agreeing to ~1e-14), but the
-  NARMA10 micro-validation reservoir NMSE (0.945) is still worse than a
-  linear AR baseline (0.099) and the <0.4 target — see
-  `docs/sprint_log/SPRINT_1_REPORT.md` for the full debugging trail and
-  root causes found so far (feature-symmetry collapse, sample count,
-  regularization were fixed; remaining gap looks like an untuned
-  `gamma1`/`washout`, not a bug).
-- **12-qubit sequential reservoir is NO-GO on runtime**: at the reference
-  12-qubit configuration, the fastest backend measured ~87 s/step, making
-  even the trajectory-cached Sprint 4 pilot (~4,374 steps) project to
-  ~106 hours — over the 12h go/no-go threshold. Sprint 1 falls back to
-  10 qubits (~8.0 hours, GO) for this specific reservoir; the 12-qubit
-  reference configuration is unaffected for the existing v4 windowed
-  `AtmosphericQRC`, which is much cheaper per sample. See
-  `docs/sprint_log/SPRINT_1_REPORT.md` and
+- **Sequential dissipative reservoir's NARMA10 hard gate FAILED (Sprint 2
+  Phase 2.1)**: after a dedicated tuning sweep (`scripts/narma10_sweep.py`)
+  over `gamma1, gamma2, input_scaling, washout, multiplexing`, the best
+  config found (`gamma1=0.1, gamma2=0.1, a=0.3, washout=50, V=4`) reaches
+  NMSE 0.398 — real progress from Sprint 1's 0.945, but still short of the
+  required <0.099 (must beat the linear AR baseline) and the ≤0.2/≤0.15
+  target/aspirational bars. Per the Sprint 2 spec this is a hard stop:
+  the reservoir is not carried forward to weather-data integration until
+  this gate passes. See `docs/sprint_log/SPRINT_2_REPORT.md` for the full
+  sweep trail, the (shallow, interior) optimum found near `gamma1≈0.1`,
+  and concrete next-step recommendations (denser gamma1 sampling, a joint
+  rather than coordinate-wise search, longer driven sequences — the best
+  config still only had 175 training samples against 660 features at
+  V=4).
+- **12-qubit sequential reservoir is NO-GO on runtime, even after the
+  Sprint 2 performance pass**: Sprint 2 replaced per-step Trotter gates
+  with an exact, once-precomputed propagator (eigendecomposition of the
+  full 12-qubit TFIM Hamiltonian), giving a real ~2-3.5x speedup (12q:
+  ~120.8→~40.7 s/step; 10q: ~6.59→~1.87 s/step) — but the ≤5 s/step CPU
+  target was only met at 10 qubits. At 12 qubits the trajectory-cached
+  Sprint 4 pilot still projects to ~49.4 hours against the 12h threshold.
+  Profiling shows the bottleneck moved from the Trotter evolution (now
+  cheap: 2 dense matmuls) to injection + amplitude damping (still
+  per-qubit gate touches). A GPU backend (CuPy, auto-detected) is
+  implemented but **unverified** — this development environment has no
+  GPU/CuPy available. The 10-qubit fallback stands, now ~3.5x faster,
+  which is what made Sprint 2's NARMA10 sweep tractable at all. See
+  `docs/sprint_log/SPRINT_2_REPORT.md` and
   `results/sequential_backend_benchmark.json`.
 - **Reservoir metrics (MC, IPC) exist but are not wired into the
   `QRCPipeline` orchestrator end-to-end** — they're callable directly

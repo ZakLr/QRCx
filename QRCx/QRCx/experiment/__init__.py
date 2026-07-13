@@ -5,6 +5,7 @@ __all__ = [
     "plot_architecture", "plot_esp_convergence", "plot_ipc_and_vpt",
     "plot_noise_sweep", "plot_results_table", "plot_fsdh_bar",
     "print_summary",
+    "apply_style", "PALETTE", "label_panel",
 ]
 
 _imports = {
@@ -19,6 +20,9 @@ _imports = {
     "plot_results_table": ".figures",
     "plot_fsdh_bar": ".figures",
     "print_summary": ".summary",
+    "apply_style": ".figstyle",
+    "PALETTE": ".figstyle",
+    "label_panel": ".figstyle",
 }
 
 

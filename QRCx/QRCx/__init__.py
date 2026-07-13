@@ -55,6 +55,8 @@ _IMPORTS = {
     # Reservoir metrics
     "measure_memory_capacity": ".metrics.reservoir",
     "measure_ipc_24h": ".metrics.reservoir",
+    "measure_memory_capacity_sequential": ".metrics.reservoir_sequential",
+    "measure_ipc_sequential": ".metrics.reservoir_sequential",
 
     # Experiment
     "timing_benchmark": ".experiment.benchmark",

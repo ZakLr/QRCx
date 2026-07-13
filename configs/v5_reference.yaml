@@ -1,0 +1,68 @@
+# Sprint 2 Phase 2.2 config freeze for SequentialDissipativeQRC.
+#
+# STATUS: PROVISIONAL, NOT GATE-PASSING. Phase 2.1's NARMA10 hard gate
+# (tuned reservoir must beat the linear AR baseline, NMSE < 0.099) was not
+# met by the best config found in this sprint's coordinate-wise sweep
+# (NMSE 0.398, down from 0.945 pre-tuning, but still short of the bar).
+# Per the sprint spec, this is reported honestly rather than claimed as
+# passing; do not treat this config as ready for weather-data integration
+# without further Sprint-3+ tuning (see docs/sprint_log/SPRINT_2_REPORT.md
+# for the full sweep trail and recommended next search directions).
+#
+# This is the best config found, frozen for reproducibility of the
+# reported numbers (NMSE, MC, IPC) -- not an endorsement that it is ready
+# for production use.
+
+reservoir:
+  n_qubits: 10          # Sprint 1/2 runtime-gate fallback on CPU-only hardware
+  tau: 1.0
+  trotter_steps: 10
+  J: 1.0
+  g: 1.0
+  propagator: exact     # Sprint 2 Phase 2.0a: eigendecomposition-based, not Trotter
+  injection: ry
+  seed: 42
+
+# Best config found by scripts/narma10_sweep.py's coordinate-wise search
+# (gate FAILED; see docs/sprint_log/SPRINT_2_REPORT.md).
+narma10_best_effort:
+  gamma1: 0.1
+  gamma2: 0.1
+  input_scaling: 0.3
+  washout: 50
+  multiplexing: 4
+  nmse: 0.39772107505863025
+  ar_baseline_nmse: 0.099
+  gate_passed: false
+  source: results/narma10_sweep.json
+
+# Seeded, fixed random per-qubit input-weight vector (breaks the
+# qubit-exchange permutation symmetry that collapsed NARMA10 features to
+# ~6 independent degrees of freedom in Sprint 1 -- see SPRINT_1_REPORT.md).
+# NEVER regenerate this without also updating the seed here; it must stay
+# reproducible via `np.random.default_rng(w_in_seed).uniform(0.5, 1.5, size=n_qubits)`.
+w_in_seed: 123
+w_in:
+  - 1.1823518632481433
+  - 0.5538210188022227
+  - 0.7203598727726114
+  - 0.6843718106986697
+  - 0.6759059010850303
+  - 1.3120945066557737
+  - 1.4233449980270563
+  - 0.7765743977971062
+  - 1.319754561593002
+  - 1.389892693111186
+
+# MC and IPC: characterization (scripts/ipc_mc_characterization.py) fixed
+# gamma2=0.03 to isolate the gamma1 trend for the trade-off figure, which
+# does not exactly match this config's gamma2=0.1. Closest measured point
+# (a=0.3, gamma1=0.1, gamma2=0.03, results/ipc_mc_characterization.json):
+# MC=2.318, linear_ipc=1.734, nonlinear_ipc=1.614, total_ipc=3.347 -- a
+# close but not exact match, not re-presented as if measured at gamma2=0.1.
+# MC is below the established "healthy range 5-10" reference, but that
+# range was set for 12 qubits; this runs at the 10-qubit fallback (see
+# docs/sprint_log/SPRINT_2_REPORT.md). No interior optimum in gamma1 was
+# found within the tested grid (0 to 0.3) -- IPC increased monotonically
+# up to the grid boundary, suggesting any interior optimum lies beyond
+# gamma1=0.3 (untested), reported honestly rather than forced.
