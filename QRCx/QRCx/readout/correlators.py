@@ -98,26 +98,33 @@ def _ptrace_1q(rho: np.ndarray, qubit: int, n_qubits: int) -> np.ndarray:
     (unlike ``single_body``/``two_body``, which are only cheap for small
     n_qubits): cost is one O(4**n_qubits) reshape+contraction, independent
     of which qubit is traced to.
+
+    Sprint 2.5 fix: contracts directly via `einsum` with repeated axis
+    labels (numpy computes the matching diagonal/trace internally) instead
+    of `np.transpose(...).reshape(...)` first -- the explicit transpose
+    forces a real O(4**n_qubits) data-reordering copy (since the axes
+    being swapped aren't contiguous), measured ~300x slower than the
+    equivalent direct einsum at 12 qubits (~0.105s vs ~0.0003s per call;
+    see docs/sprint_log/SPRINT_2_5_REPORT.md).
     """
-    dim = 2 ** n_qubits
     P, S = 2 ** qubit, 2 ** (n_qubits - qubit - 1)
     t = rho.reshape(P, 2, S, P, 2, S)
-    t = np.transpose(t, (0, 2, 1, 3, 5, 4))  # (P, S, ket_q, P, S, bra_q)
-    t = t.reshape(P * S, 2, P * S, 2)
-    return np.einsum("EaEb->ab", t)
+    # axes (p, a, s, p, b, s): p and s repeated (traced/matched), a/b free.
+    return np.einsum("paspbs->ab", t, optimize=True)
 
 
 def _ptrace_2q(rho: np.ndarray, q1: int, q2: int, n_qubits: int) -> np.ndarray:
-    """Reduced two-qubit (4x4) density matrix via partial trace, q1 < q2."""
+    """Reduced two-qubit (4x4) density matrix via partial trace, q1 < q2.
+
+    See `_ptrace_1q` docstring: direct einsum with repeated labels, no
+    explicit transpose.
+    """
     assert q1 < q2
-    dim = 2 ** n_qubits
     A, B, C = 2 ** q1, 2 ** (q2 - q1 - 1), 2 ** (n_qubits - q2 - 1)
     t = rho.reshape(A, 2, B, 2, C, A, 2, B, 2, C)
     # axes: (a_ket, q1_ket, b_ket, q2_ket, c_ket, a_bra, q1_bra, b_bra, q2_bra, c_bra)
-    t = np.transpose(t, (0, 2, 4, 5, 7, 9, 1, 3, 6, 8))
-    # -> (a,b,c,a',b',c', q1_ket, q2_ket, q1_bra, q2_bra)
-    t = t.reshape(A * B * C, A * B * C, 2, 2, 2, 2)
-    reduced = np.einsum("EEabcd->abcd", t)
+    # a/b/c repeated (traced), q1_ket/q2_ket/q1_bra/q2_bra free -> output order wxyz.
+    reduced = np.einsum("pwqxrpyqzr->wxyz", t, optimize=True)
     return reduced.reshape(4, 4)
 
 

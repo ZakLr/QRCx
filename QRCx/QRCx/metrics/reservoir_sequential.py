@@ -40,6 +40,26 @@ def _r_squared(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     return float((cov ** 2) / (var_y * var_p))
 
 
+def _shuffle_surrogate_threshold(
+    state: np.ndarray, target: np.ndarray, ridge_alpha: float,
+    n_surrogates: int, percentile: float, rng: np.random.Generator,
+) -> float:
+    """Dambre et al. 2012 practice: shuffle `target` relative to `state`
+    (breaking the true temporal correspondence while preserving each
+    array's own marginal distribution) `n_surrogates` times, refit the same
+    Ridge readout, and take the given percentile of the resulting r^2
+    values as the significance threshold -- a measured capacity at or below
+    this level is not distinguishable from a reservoir with no real memory
+    of that lag/degree.
+    """
+    surrogate_r2 = np.empty(n_surrogates)
+    for i in range(n_surrogates):
+        shuffled = rng.permutation(target)
+        model = Ridge(alpha=ridge_alpha).fit(state, shuffled)
+        surrogate_r2[i] = _r_squared(shuffled, model.predict(state))
+    return float(np.percentile(surrogate_r2, percentile))
+
+
 def drive_iid_gaussian(qrc, n_steps: int, seed: int = 0) -> tuple:
     """Drive `qrc` with a single continuous iid standard-normal stream
     broadcast through qrc.w_in, as MC/IPC below require. Returns (u, features)."""
@@ -53,6 +73,8 @@ def drive_iid_gaussian(qrc, n_steps: int, seed: int = 0) -> tuple:
 def measure_memory_capacity_sequential(
     qrc=None, n_steps: int = 500, max_lag: int = 20, ridge_alpha: float = 1e-2, seed: int = 0,
     u: np.ndarray = None, features: np.ndarray = None,
+    threshold_surrogates: bool = False, n_surrogates: int = 20, surrogate_percentile: float = 95.0,
+    surrogate_seed: int = 1000,
 ) -> dict:
     """Linear memory capacity via a single continuous iid Gaussian drive
     (Jaeger 2001's original protocol; see module docstring for why this,
@@ -62,12 +84,21 @@ def measure_memory_capacity_sequential(
     project convention); reported as-is here regardless of qubit count
     actually used (see caller for which n_qubits this was run at). Pass
     precomputed (u, features) to reuse a drive already done for IPC.
+
+    threshold_surrogates=True applies Dambre et al. 2012 shuffle-surrogate
+    thresholding (see `_shuffle_surrogate_threshold`): per-lag capacities at
+    or below the surrogate-null percentile are zeroed. `MC` is always the
+    sum of the (possibly thresholded) per-lag values; `MC_raw` preserves the
+    untresholded sum for comparison.
     """
     if u is None or features is None:
         u, features = drive_iid_gaussian(qrc, n_steps, seed)
     n_steps = len(u)
+    rng = np.random.default_rng(surrogate_seed)
 
+    mc_per_lag_raw = []
     mc_per_lag = []
+    thresholds = []
     for k in range(1, max_lag + 1):
         if k >= n_steps:
             break
@@ -75,14 +106,30 @@ def measure_memory_capacity_sequential(
         state = features[k:]
         model = Ridge(alpha=ridge_alpha).fit(state, target)
         pred = model.predict(state)
-        mc_per_lag.append(_r_squared(target, pred))
+        r2 = _r_squared(target, pred)
+        mc_per_lag_raw.append(r2)
+        if threshold_surrogates:
+            thresh = _shuffle_surrogate_threshold(state, target, ridge_alpha, n_surrogates, surrogate_percentile, rng)
+            thresholds.append(thresh)
+            mc_per_lag.append(r2 if r2 > thresh else 0.0)
+        else:
+            mc_per_lag.append(r2)
 
-    return {"MC": float(np.sum(mc_per_lag)), "per_lag": mc_per_lag, "n_steps": n_steps, "max_lag": max_lag}
+    result = {
+        "MC": float(np.sum(mc_per_lag)), "MC_raw": float(np.sum(mc_per_lag_raw)),
+        "per_lag": mc_per_lag, "per_lag_raw": mc_per_lag_raw,
+        "n_steps": n_steps, "max_lag": max_lag, "threshold_surrogates": threshold_surrogates,
+    }
+    if threshold_surrogates:
+        result["surrogate_thresholds"] = thresholds
+    return result
 
 
 def measure_ipc_sequential(
     qrc=None, n_steps: int = 500, max_lag: int = 10, ridge_alpha: float = 1e-2, seed: int = 1,
     u: np.ndarray = None, features: np.ndarray = None,
+    threshold_surrogates: bool = False, n_surrogates: int = 20, surrogate_percentile: float = 95.0,
+    surrogate_seed: int = 2000,
 ) -> dict:
     """Linear + nonlinear (quadratic) Information Processing Capacity,
     Cindrak et al. 2026 (arXiv:2603.21371) linear-capacity framework:
@@ -90,13 +137,20 @@ def measure_ipc_sequential(
     u[t-k]^d from the reservoir state at time t via Ridge, train=test,
     and sum squared correlations. Total IPC = linear + nonlinear. Pass
     precomputed (u, features) to reuse a drive already done for MC.
+
+    threshold_surrogates=True applies Dambre et al. 2012 shuffle-surrogate
+    thresholding independently to the linear and quadratic component at
+    each lag (see `_shuffle_surrogate_threshold`); `total_ipc`/`linear_ipc`/
+    `nonlinear_ipc` are computed from the (possibly thresholded) values,
+    with `*_raw` variants preserving the unthresholded sums.
     """
     if u is None or features is None:
         u, features = drive_iid_gaussian(qrc, n_steps, seed)
     n_steps = len(u)
+    rng = np.random.default_rng(surrogate_seed)
 
-    linear_ipc = 0.0
-    nonlinear_ipc = 0.0
+    linear_ipc = linear_ipc_raw = 0.0
+    nonlinear_ipc = nonlinear_ipc_raw = 0.0
     per_lag = []
     for k in range(1, max_lag + 1):
         if k >= n_steps:
@@ -111,15 +165,31 @@ def measure_ipc_sequential(
         quad_model = Ridge(alpha=ridge_alpha).fit(state, target_quad)
         quad_r2 = _r_squared(target_quad, quad_model.predict(state))
 
-        linear_ipc += lin_r2
-        nonlinear_ipc += quad_r2
-        per_lag.append({"lag": k, "linear": lin_r2, "quadratic": quad_r2})
+        linear_ipc_raw += lin_r2
+        nonlinear_ipc_raw += quad_r2
+
+        if threshold_surrogates:
+            lin_thresh = _shuffle_surrogate_threshold(state, target_lin, ridge_alpha, n_surrogates, surrogate_percentile, rng)
+            quad_thresh = _shuffle_surrogate_threshold(state, target_quad, ridge_alpha, n_surrogates, surrogate_percentile, rng)
+            lin_r2_t = lin_r2 if lin_r2 > lin_thresh else 0.0
+            quad_r2_t = quad_r2 if quad_r2 > quad_thresh else 0.0
+        else:
+            lin_r2_t, quad_r2_t = lin_r2, quad_r2
+
+        linear_ipc += lin_r2_t
+        nonlinear_ipc += quad_r2_t
+        per_lag.append({"lag": k, "linear": lin_r2_t, "quadratic": quad_r2_t,
+                         "linear_raw": lin_r2, "quadratic_raw": quad_r2})
 
     return {
         "linear_ipc": float(linear_ipc),
         "nonlinear_ipc": float(nonlinear_ipc),
         "total_ipc": float(linear_ipc + nonlinear_ipc),
+        "linear_ipc_raw": float(linear_ipc_raw),
+        "nonlinear_ipc_raw": float(nonlinear_ipc_raw),
+        "total_ipc_raw": float(linear_ipc_raw + nonlinear_ipc_raw),
         "per_lag": per_lag,
         "n_steps": n_steps,
         "max_lag": max_lag,
+        "threshold_surrogates": threshold_surrogates,
     }

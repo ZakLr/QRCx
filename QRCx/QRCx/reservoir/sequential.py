@@ -158,11 +158,14 @@ class NumpyDensityOps:
     the most significant bit); analogously for the column/bra index.
     """
 
-    def __init__(self, n_qubits: int, use_gpu: bool = False):
+    def __init__(self, n_qubits: int, use_gpu: bool = False, dtype: str = "complex128"):
+        assert dtype in ("complex128", "complex64")
         self.n = n_qubits
         self.dim = 2 ** n_qubits
         self.xp, self.on_gpu = _get_xp(use_gpu)
         xp = self.xp
+        self.dtype = getattr(xp, dtype)
+        self.float_dtype = xp.float64 if dtype == "complex128" else xp.float32
         idx = np.arange(self.dim)
         # bit_of[q] : +1 if qubit q is |0> for this basis index, -1 if |1>
         # (Z-eigenvalue convention), shape (dim,), one array per qubit.
@@ -170,31 +173,55 @@ class NumpyDensityOps:
         self._z = [xp.asarray(z) for z in self._z_np]
 
     def asarray(self, a: np.ndarray):
-        return self.xp.asarray(a)
+        return self.xp.asarray(a, dtype=self.dtype)
 
     def to_numpy(self, a) -> np.ndarray:
-        return a if self.xp is np else self.xp.asnumpy(a)
+        a = a if self.xp is np else self.xp.asnumpy(a)
+        return a.astype(np.complex128) if a.dtype != np.complex128 else a
 
     def vacuum(self):
-        rho = self.xp.zeros((self.dim, self.dim), dtype=self.xp.complex128)
+        rho = self.xp.zeros((self.dim, self.dim), dtype=self.dtype)
         rho[0, 0] = 1.0
         return rho
 
     def conjugate_1q(self, rho, K: np.ndarray, qubit: int):
-        """rho -> K rho K^dagger, K acting on `qubit` only (one Kraus term)."""
+        """rho -> K rho K^dagger, K acting on `qubit` only (one Kraus term).
+
+        Sprint 2.5 Phase A fix: uses reshape + np.matmul (BLAS-backed)
+        instead of np.einsum. Both compute the identical reshape+contract
+        pattern (2x2 K on the target qubit's index pair, touching the full
+        (dim, dim) array once per side -- never a dense (dim, dim) unitary
+        matmul for a *local* op), but plain `einsum` with this 4-index
+        subscript does not reliably dispatch to BLAS gemm and measured
+        ~3x slower than the equivalent matmul-based contraction at 12
+        qubits (0.60s vs 0.21s per call, ket+bra combined) -- see
+        docs/sprint_log/SPRINT_2_5_REPORT.md.
+        """
         xp = self.xp
         n = self.n
-        K = xp.asarray(K)
+        K = xp.asarray(K, dtype=rho.dtype)
+        dim = self.dim
         P, S = 2 ** qubit, 2 ** (n - qubit - 1)
-        r = rho.reshape(P, 2, S, self.dim)
-        r = xp.einsum("ab,xbyz->xayz", K, r, optimize=True)
-        r = r.reshape(self.dim, P, 2, S)
-        r = xp.einsum("ba,xyaz->xybz", xp.conj(K), r, optimize=True)
-        return r.reshape(self.dim, self.dim)
+
+        # Ket side: rho -> K rho. Reshape so the target qubit's 2-dim axis
+        # is the middle axis of a (P, 2, S*dim) view; matmul broadcasts K
+        # (2,2) over the leading P batch dim, contracting the shared "2".
+        r = rho.reshape(P, 2, S * dim)
+        r = xp.matmul(K, r)
+        r = r.reshape(dim, dim)
+
+        # Bra side: rho -> rho K^dagger, i.e. rho -> conj(K) @ rho on the
+        # qubit's bra sub-index (see module docstring for the index-order
+        # derivation). Reshape so that axis is the middle axis of a
+        # (dim*P, 2, S) view.
+        Kc = xp.conj(K)
+        r = r.reshape(dim * P, 2, S)
+        r = xp.matmul(Kc, r)
+        return r.reshape(dim, dim)
 
     def conjugate_dense(self, rho, U):
         """rho -> U rho U^dagger for a full (dim, dim) unitary (2 dense matmuls)."""
-        U = self.xp.asarray(U)
+        U = self.xp.asarray(U, dtype=self.dtype)
         return U @ rho @ U.conj().T
 
     def apply_channel_1q(self, rho, kraus_ops: list, qubit: int):
@@ -221,10 +248,10 @@ class NumpyDensityOps:
         xp = self.xp
         qubits = range(self.n) if qubits is None else qubits
         c = float(np.sqrt(max(0.0, 1.0 - gamma2)))
-        coeff = xp.ones((self.dim, self.dim), dtype=xp.float64)
+        coeff = xp.ones((self.dim, self.dim), dtype=self.float_dtype)
         for q in qubits:
             same_bit = (self._z[q][:, None] * self._z[q][None, :]) > 0
-            coeff = coeff * xp.where(same_bit, 1.0, c)
+            coeff = coeff * xp.where(same_bit, 1.0, c).astype(self.float_dtype)
         return coeff
 
     def z_basis_phase(self, single_angles: dict, pair_angles: dict):
@@ -235,12 +262,12 @@ class NumpyDensityOps:
                        exp(-i phi/2 * z_i z_j).
         """
         xp = self.xp
-        total = xp.zeros(self.dim, dtype=xp.float64)
+        total = xp.zeros(self.dim, dtype=self.float_dtype)
         for q, theta in single_angles.items():
             total = total + (-0.5 * theta) * self._z[q]
         for (i, j), phi in pair_angles.items():
             total = total + (-0.5 * phi) * self._z[i] * self._z[j]
-        return xp.exp(1j * total)
+        return xp.exp(1j * total).astype(self.dtype)
 
 
 class SequentialDissipativeQRC(BaseReservoir):
@@ -273,10 +300,13 @@ class SequentialDissipativeQRC(BaseReservoir):
         use_gpu: bool = False,
         multiplexing: int = 1,
         w_in: Optional[np.ndarray] = None,
+        dtype: str = "complex128",
+        n_in: Optional[int] = None,
     ):
         assert injection in ("ry", "zz")
         assert propagator in ("exact", "trotter")
         assert multiplexing >= 1
+        assert n_in is None or (1 <= n_in <= n_qubits)
         self.n_qubits = n_qubits
         self.tau = tau
         self.trotter_steps = trotter_steps
@@ -286,6 +316,18 @@ class SequentialDissipativeQRC(BaseReservoir):
         self.input_scaling = input_scaling
         self.washout = washout
         self.injection = injection
+        # Sprint 2.5 Phase B: restricted input injection (Cindrak protocol).
+        # n_in=None (default) drives all n_qubits every step, as before.
+        # n_in<n_qubits drives only the first n_in qubits (by feature-index
+        # order); the remaining qubits receive no injection at all and act
+        # as pure memory nodes -- full-qubit injection overwrites every
+        # qubit's state each step (input erasure), a prime suspect for weak
+        # memory capacity. Only implemented for injection="ry" (the
+        # NARMA10/scalar-input case this was designed for); injection="zz"
+        # ignores n_in (its global entangling layer doesn't have a
+        # comparably simple per-qubit restriction) -- documented, not
+        # silently wrong.
+        self.n_in = n_qubits if n_in is None else n_in
         self.J = J
         self.g = g
         self.seed = seed
@@ -298,7 +340,8 @@ class SequentialDissipativeQRC(BaseReservoir):
                 "use QRCx.reservoir.sequential_backends for qiskit_aer/pennylane_mixed "
                 "benchmarking wrappers."
             )
-        self.ops = NumpyDensityOps(n_qubits, use_gpu=use_gpu)
+        self.dtype = dtype
+        self.ops = NumpyDensityOps(n_qubits, use_gpu=use_gpu, dtype=dtype)
         self.on_gpu = self.ops.on_gpu
         self._pair_list = [(i, j) for i in range(n_qubits) for j in range(i + 1, n_qubits)]
 
@@ -321,6 +364,29 @@ class SequentialDissipativeQRC(BaseReservoir):
         else:
             self._evals = self._evecs = self._U_full = None
 
+        # Precomputed once (gamma2/n_qubits fixed per instance) rather than
+        # rebuilt every step -- dephasing_coeff() was measured costing
+        # ~1.6s/call at 12 qubits purely to rebuild an array that never
+        # changes across steps.
+        self._dephasing_coeff_cached = (
+            self.ops.dephasing_coeff(gamma2) if gamma2 > 0 else None
+        )
+        # Same idea for amplitude damping's per-qubit diagonal E0 factor
+        # and off-diagonal E1 matrix (gamma1 fixed per instance): build
+        # once, reuse every step instead of rebuilding in the hot loop.
+        if self.gamma1 > 0:
+            c = float(np.sqrt(max(0.0, 1.0 - gamma1)))
+            self._damping_d = [
+                self.ops.xp.where(self.ops._z[q] > 0, 1.0, c).astype(self.ops.float_dtype)
+                for q in range(n_qubits)
+            ]
+            self._damping_e1 = self.ops.asarray(
+                np.array([[0, np.sqrt(gamma1)], [0, 0]], dtype=np.complex128)
+            )
+        else:
+            self._damping_d = None
+            self._damping_e1 = None
+
     def _propagator_for_time(self, t: float) -> np.ndarray:
         """Exact e^{-iHt} reusing the cached eigendecomposition (cheap: one
         O(dim) diagonal exponential + 2 dense matmuls, done once per
@@ -334,7 +400,9 @@ class SequentialDissipativeQRC(BaseReservoir):
         n = self.n_qubits
         a = self.input_scaling
         single_angles = {}
-        for j in range(min(len(x), n)):
+        # Restricted injection (n_in < n_qubits): only the first n_in
+        # qubits receive input; the rest are undriven memory qubits.
+        for j in range(min(len(x), n, self.n_in)):
             rho = self.ops.conjugate_1q(rho, _ry(a * self.w_in[j] * x[j]), j)
         if len(x) > n:
             # fold remaining (spec: feature 13) onto qubit 0 as RZ
@@ -384,11 +452,13 @@ class SequentialDissipativeQRC(BaseReservoir):
     def _dissipate(self, rho):
         n = self.n_qubits
         if self.gamma2 > 0:
-            rho = rho * self.ops.dephasing_coeff(self.gamma2)
+            rho = rho * self._dephasing_coeff_cached
         if self.gamma1 > 0:
-            kraus = _amplitude_damping_kraus(self.gamma1)
             for i in range(n):
-                rho = self.ops.apply_channel_1q(rho, kraus, i)
+                d = self._damping_d[i]
+                term0 = rho * d[:, None] * d[None, :]
+                term1 = self.ops.conjugate_1q(rho, self._damping_e1, i)
+                rho = term0 + term1
         return rho
 
     def step(self, rho, x: np.ndarray):

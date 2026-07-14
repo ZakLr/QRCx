@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "TODO(repo-url)"
+Repository = "https://github.com/ZakLr/QRCx"
 
 [project.scripts]
 QRCx = "QRCx.__main__:main"

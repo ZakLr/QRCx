@@ -2,7 +2,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║         QRCx — PIPELINE DEMO (v4 + original merged)                         ║
-║         QRC Weather Forecasting Challenge 2026 · Track B                    ║
+║  qBraid x MITRE x JonesTrading Global Industry Challenge 2026 · Track B      ║
 ║                                                                              ║
 ║  PURPOSE OF THIS FILE                                                        ║
 ║  ─────────────────────                                                       ║

@@ -59,12 +59,22 @@ def main() -> int:
                 propagator="exact", multiplexing=1, w_in=w_in,
             )
             u, features = drive_iid_gaussian(qrc, n_steps=n_steps, seed=0)
-            mc = measure_memory_capacity_sequential(max_lag=max_lag_mc, u=u, features=features)
-            ipc = measure_ipc_sequential(max_lag=max_lag_ipc, u=u, features=features)
+            # Sprint 2.5 Phase C: Dambre et al. 2012 shuffle-surrogate
+            # thresholding -- capacities not distinguishable from an
+            # input-shuffled null (95th percentile) are zeroed.
+            mc = measure_memory_capacity_sequential(
+                max_lag=max_lag_mc, u=u, features=features,
+                threshold_surrogates=True, n_surrogates=20,
+            )
+            ipc = measure_ipc_sequential(
+                max_lag=max_lag_ipc, u=u, features=features,
+                threshold_surrogates=True, n_surrogates=20,
+            )
             record = {
                 "a": a, "gamma1": gamma1, "gamma2": args.gamma2,
-                "MC": mc["MC"], "linear_ipc": ipc["linear_ipc"],
-                "nonlinear_ipc": ipc["nonlinear_ipc"], "total_ipc": ipc["total_ipc"],
+                "MC": mc["MC"], "MC_raw": mc["MC_raw"],
+                "linear_ipc": ipc["linear_ipc"], "nonlinear_ipc": ipc["nonlinear_ipc"],
+                "total_ipc": ipc["total_ipc"], "total_ipc_raw": ipc["total_ipc_raw"],
             }
             records.append(record)
             print(json.dumps(record))
@@ -94,7 +104,7 @@ def main() -> int:
         axes[1].plot(g1, lin, marker="s", linestyle="--", color=PALETTE[i], alpha=0.6, label=f"a={a} (linear)")
 
     axes[0].set_xlabel(r"Amplitude damping rate $\gamma_1$")
-    axes[0].set_ylabel("Total IPC")
+    axes[0].set_ylabel("Total IPC (shuffle-surrogate thresholded, p95)")
     axes[0].legend(fontsize=8)
     label_panel(axes[0], "a")
 
@@ -116,8 +126,21 @@ def main() -> int:
     for a in A_GRID:
         sub = [r for r in records if r["a"] == a]
         best = max(sub, key=lambda r: r["total_ipc"])
-        print(f"a={a}: best gamma1={best['gamma1']} (total_ipc={best['total_ipc']:.4f}); "
+        print(f"a={a}: best gamma1={best['gamma1']} (total_ipc={best['total_ipc']:.4f}, "
+              f"raw={best['total_ipc_raw']:.4f}); "
               f"{'INTERIOR OPTIMUM' if 0 < best['gamma1'] < GAMMA1_GRID[-1] else 'BOUNDARY (gamma1=0 or max) -- reporting honestly, not forcing an interior claim'}")
+
+    # Does the monotonic-in-gamma1 trend (found without thresholding in
+    # Sprint 2) survive thresholding? Compare thresholded vs raw ordering.
+    for a in A_GRID:
+        sub = sorted([r for r in records if r["a"] == a], key=lambda r: r["gamma1"])
+        thresholded_monotonic = all(
+            sub[i]["total_ipc"] <= sub[i + 1]["total_ipc"] for i in range(len(sub) - 1)
+        )
+        raw_monotonic = all(
+            sub[i]["total_ipc_raw"] <= sub[i + 1]["total_ipc_raw"] for i in range(len(sub) - 1)
+        )
+        print(f"a={a}: monotonic increase in gamma1 -- thresholded={thresholded_monotonic}, raw={raw_monotonic}")
 
     return 0
 

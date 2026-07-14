@@ -1,11 +1,11 @@
 # QRCx — Quantum Reservoir Computing for Weather Forecasting
 
-**QRCx Team** · QRC Weather Forecasting Challenge 2026 · Track B
+**QRCx Team** · qBraid x MITRE x JonesTrading Global Industry Challenge 2026 · Track B
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![PennyLane](https://img.shields.io/badge/PennyLane-0.45-orange)](https://pennylane.ai/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![qBraid](https://qbraid-static.s3.amazonaws.com/logos/Launch_on_qBraid_white.png)](https://account.qbraid.com/?gitHubUrl=TODO(repo-url).git)
+[![qBraid](https://qbraid-static.s3.amazonaws.com/logos/Launch_on_qBraid_white.png)](https://account.qbraid.com/?gitHubUrl=https://github.com/ZakLr/QRCx.git)
 
 > No performance claims in this README are asserted without a corresponding
 > file in `results/`. See [Performance](#performance) below.
@@ -25,13 +25,12 @@ large Hilbert space (2^N) as a feature source.
 
 **Reference configuration: 12 qubits, 234-dimensional base readout**
 (36 single-body + 198 two-body Pauli correlators — `3N + 3·C(N,2)` for
-N=12). 10 qubits is the only permitted fallback, used only if a
-Sprint-1 runtime gate fails; no other qubit count appears in the reference
-pipeline. **The Sprint 1 runtime gate did fail at 12 qubits** for the new
-sequential dissipative reservoir specifically (not the v4 windowed
-reservoir) — see Known Limitations and
-`docs/sprint_log/SPRINT_1_REPORT.md`; that reservoir runs at the 10-qubit
-fallback.
+N=12). 10 qubits is the only permitted fallback; no other qubit count
+appears in the reference pipeline. **The new sequential dissipative
+reservoir (not the v4 windowed reservoir) currently runs at the 10-qubit
+fallback**, since 12-qubit density-matrix simulation is too slow on
+CPU-only hardware to meet the project's wall-clock budget — see Known
+Limitations and `docs/sprint_log/SPRINT_1_REPORT.md`.
 
 The prediction target is a **climatological anomaly**:
 
@@ -92,7 +91,7 @@ Related work: Ahmed et al. 2025 (arXiv:2506.22335), Kornjača et al. 2024
 ## Install
 
 ```bash
-git clone TODO(repo-url) QRCx
+git clone https://github.com/ZakLr/QRCx QRCx
 cd QRCx/QRCx
 pip install -e .          # PennyLane backend
 pip install -e ".[cuda]"  # + CUDA-Q GPU kernel (optional)
@@ -144,15 +143,17 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
 ## Repo map
 
 ```
-cudaq_qrc/
+. (repo root)
 ├── README.md                       # This file
 ├── scripts/
 │   ├── make_readme_tables.py       # Regenerates the results block above from results/*.json
 │   ├── narma10_validation.py       # Sprint 1 NARMA10 micro-validation
-│   ├── narma10_sweep.py            # Sprint 2 Phase 2.1 NARMA10 tuning gate sweep
-│   ├── ipc_mc_characterization.py  # Sprint 2 Phase 2.2 IPC/MC trade-off figure
-│   └── benchmark_sequential_backends.py # Runtime-gate backend benchmark
-├── configs/v5_reference.yaml       # Frozen v5 reservoir config (Sprint 2; PROVISIONAL, gate not passed)
+│   ├── narma10_sweep.py            # Sprint 2 NARMA10 tuning sweep (superseded gate; see narma10_gate_v2.py)
+│   ├── narma10_gate_v2.py          # Sprint 2.5 valid-protocol NARMA10 gate (train=3000/test=1000/val-tuned alpha) -- authoritative gate result
+│   ├── ipc_mc_characterization.py  # IPC/MC trade-off figure, with Sprint 2.5 shuffle-surrogate thresholding
+│   ├── benchmark_sequential_backends.py # Runtime-gate backend benchmark
+│   └── gpu_verify_standalone.py    # Self-contained CuPy/GPU benchmark for manual qBraid Lab runs
+├── configs/v5_reference.yaml       # Frozen v5 reservoir config (PROVISIONAL, gate not passed)
 ├── results/                        # results/*.json — the only source of truth for reported numbers
 ├── qrc_figures/                    # Generated figures, incl. fig_ipc_tradeoff.png (Sprint 2)
 ├── docs/
@@ -216,34 +217,39 @@ cudaq_qrc/
   do not yet. Extending this project-wide is deferred.
 - **No results yet**: `results/` is empty; the Performance section above is
   intentionally a pending placeholder rather than a fabricated number.
-- **Sequential dissipative reservoir's NARMA10 hard gate FAILED (Sprint 2
-  Phase 2.1)**: after a dedicated tuning sweep (`scripts/narma10_sweep.py`)
-  over `gamma1, gamma2, input_scaling, washout, multiplexing`, the best
-  config found (`gamma1=0.1, gamma2=0.1, a=0.3, washout=50, V=4`) reaches
-  NMSE 0.398 — real progress from Sprint 1's 0.945, but still short of the
-  required <0.099 (must beat the linear AR baseline) and the ≤0.2/≤0.15
-  target/aspirational bars. Per the Sprint 2 spec this is a hard stop:
-  the reservoir is not carried forward to weather-data integration until
-  this gate passes. See `docs/sprint_log/SPRINT_2_REPORT.md` for the full
-  sweep trail, the (shallow, interior) optimum found near `gamma1≈0.1`,
-  and concrete next-step recommendations (denser gamma1 sampling, a joint
-  rather than coordinate-wise search, longer driven sequences — the best
-  config still only had 175 training samples against 660 features at
-  V=4).
-- **12-qubit sequential reservoir is NO-GO on runtime, even after the
-  Sprint 2 performance pass**: Sprint 2 replaced per-step Trotter gates
-  with an exact, once-precomputed propagator (eigendecomposition of the
-  full 12-qubit TFIM Hamiltonian), giving a real ~2-3.5x speedup (12q:
-  ~120.8→~40.7 s/step; 10q: ~6.59→~1.87 s/step) — but the ≤5 s/step CPU
-  target was only met at 10 qubits. At 12 qubits the trajectory-cached
-  Sprint 4 pilot still projects to ~49.4 hours against the 12h threshold.
-  Profiling shows the bottleneck moved from the Trotter evolution (now
-  cheap: 2 dense matmuls) to injection + amplitude damping (still
-  per-qubit gate touches). A GPU backend (CuPy, auto-detected) is
-  implemented but **unverified** — this development environment has no
-  GPU/CuPy available. The 10-qubit fallback stands, now ~3.5x faster,
-  which is what made Sprint 2's NARMA10 sweep tractable at all. See
-  `docs/sprint_log/SPRINT_2_REPORT.md` and
+- **Sequential dissipative reservoir's NARMA10 hard gate still FAILS after
+  a re-run with a statistically valid protocol (Sprint 2.5)**: the Sprint 2
+  gate verdict was voided (too few post-washout samples for a trustworthy
+  estimate) and re-run with train=3000/test=1000/held-out validation-slice
+  alpha tuning. Best full-protocol result: `gamma1=0.03, n_in=10 (all
+  qubits driven)`, NMSE **0.224** — real progress from the voided 0.398,
+  but still short of the (now more rigorously measured) AR baseline of
+  0.0745 and the ≤0.2/≤0.15 target/aspirational bars. Restricted input
+  injection (driving only 2 or 4 of 10 qubits, leaving the rest as pure
+  memory nodes) was implemented and tested as a hypothesis for improving
+  memory — it **did not help**: full injection (all qubits driven) beat
+  restricted injection at every damping rate tried, contradicting the
+  "input erasure" theory. See `docs/sprint_log/SPRINT_2_5_REPORT.md` for
+  the full trail and next-step recommendations.
+- **12-qubit sequential reservoir remains NO-GO on runtime** on the
+  CPU-only hardware available for development. Two real performance bugs
+  were found and fixed in Sprint 2.5 beyond Sprint 2's exact-propagator
+  pass — `np.einsum` wasn't dispatching to BLAS for local per-qubit gate
+  application (~3x slower than an equivalent `np.matmul`-based rewrite),
+  and the correlator-extraction partial trace was forcing an unnecessary
+  full-array transpose-copy (~300x slower than a direct `einsum` with
+  repeated axis labels) — combined with precomputing per-step-constant
+  coefficient arrays once instead of every step, this cut 12-qubit cost
+  from ~40.7 s/step (Sprint 2) to ~17-18 s/step (complex128) or ~10-11
+  s/step with an optional reduced-precision complex64 mode (verified
+  numerically stable). Both are close to, but do not conclusively clear,
+  the ≤8 s/step CPU target the orchestrator set. A GPU backend (CuPy,
+  auto-detected) is implemented; verifying it requires a real GPU, which
+  this development environment doesn't have — a self-contained benchmark
+  script (`scripts/gpu_verify_standalone.py`) was handed to the user to
+  run in qBraid Lab, with results pending. The 10-qubit fallback stands
+  as the working configuration (now ~13-14x faster than Sprint 1's
+  original Trotter path). See `docs/sprint_log/SPRINT_2_5_REPORT.md` and
   `results/sequential_backend_benchmark.json`.
 - **Reservoir metrics (MC, IPC) exist but are not wired into the
   `QRCPipeline` orchestrator end-to-end** — they're callable directly
@@ -273,7 +279,7 @@ pipeline, not by LLM output.
   title = {QRCx: Quantum Reservoir Computing for Weather Forecasting},
   author = {QRCx Team},
   year = {2026},
-  url = {TODO(repo-url)}
+  url = {https://github.com/ZakLr/QRCx}
 }
 ```
 

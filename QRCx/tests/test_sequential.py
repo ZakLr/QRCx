@@ -172,3 +172,25 @@ def test_multiplexed_features_shape_and_consistency():
     # valid, finite, non-degenerate feature vectors.
     assert np.all(np.isfinite(feats_v4))
     assert feats_v4.std() > 0
+
+
+def test_restricted_injection_differs_from_full_injection():
+    """n_in < n_qubits (Cindrak-style restricted injection) must change the
+    driven trajectory (fewer qubits receive input each step) but keep
+    trace/shape correctness -- undriven qubits still evolve/dissipate."""
+    rng = np.random.default_rng(7)
+    seq = rng.uniform(-1, 1, size=(5, 13))
+    n_feat = 3 * N_QUBITS + 3 * N_QUBITS * (N_QUBITS - 1) // 2
+
+    qrc_full = SequentialDissipativeQRC(n_qubits=N_QUBITS, gamma1=0.05, gamma2=0.02, washout=0, n_in=N_QUBITS)
+    qrc_restricted = SequentialDissipativeQRC(n_qubits=N_QUBITS, gamma1=0.05, gamma2=0.02, washout=0, n_in=2)
+
+    feats_full = qrc_full.drive(seq)
+    feats_restricted = qrc_restricted.drive(seq)
+    assert feats_full.shape == (5, n_feat) == feats_restricted.shape
+    assert not np.allclose(feats_full, feats_restricted)
+
+    rho = qrc_restricted.ops.vacuum()
+    for k in range(5):
+        rho = qrc_restricted.step(rho, seq[k])
+        assert abs(np.trace(rho).real - 1.0) < 1e-8
