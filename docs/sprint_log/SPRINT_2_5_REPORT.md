@@ -9,11 +9,16 @@ features) for a trustworthy NMSE estimate. This sprint re-measures both
 honestly rather than assuming either Sprint 2 conclusion still holds.
 
 **Bottom line**: found and fixed two real performance bugs (~2.3x combined
-speedup on top of Sprint 2's exact-propagator win — see Phase A), but the
-strict CPU targets (≤8s/step @12q, ≤0.4s/step @10q) are still not
-conclusively met on this CPU-only hardware; GPU verification is pending
-the user's own qBraid Lab run. 12 qubits is **not restored** as the
-reference config. The NARMA10 gate was re-run with a statistically valid
+speedup on top of Sprint 2's exact-propagator win — see Phase A). The
+strict CPU-only targets (≤8s/step @12q) are still not conclusively met on
+CPU, but **GPU verification (user-run, qBraid Lab, NVIDIA L4) clears the
+bar decisively: 7.42s/step at 12 qubits in full complex128 precision,
+projecting the Sprint 4 pilot to ~9.0 hours (GO, under the 12h
+threshold)**. Per the orchestrator's rule ("if 12q pilot projects ≤12h on
+ANY available hardware, 12q is RESTORED as reference"), **12 qubits is
+restored as the reference configuration, contingent on GPU (CuPy)
+execution being available** — CPU-only environments still use the
+10-qubit fallback. The NARMA10 gate was re-run with a statistically valid
 protocol (train=3000, held-out validation for alpha tuning) and improved
 substantially (0.398→0.224) but **still fails the hard gate** against the
 (now more rigorously measured, lower) AR baseline of 0.0745. Restricted
@@ -90,25 +95,51 @@ this session with just an API key. The key is stored in a gitignored
 benchmarking. A self-contained standalone script
 (`scripts/gpu_verify_standalone.py`, no QRCx import required) was written,
 smoke-tested on CPU here (numbers consistent with the in-repo benchmark),
-and handed to the user to run in a qBraid Lab GPU notebook.
+and handed to the user to run in a qBraid Lab GPU notebook (NVIDIA L4).
 
-**GPU numbers not available in this report** — the user opted to run the
-standalone script themselves in qBraid Lab and share results afterward.
-This section, and the 12-qubit reference-config decision below, should be
-updated once those numbers exist; do not treat GPU speedup as verified
-until then.
+First attempt failed with `RuntimeError: Failed to find CUDA headers` —
+the `cupy-cuda12x` wheel doesn't bundle the CUDA toolkit headers CuPy's
+JIT kernel compiler needs (e.g. for `cupy.ones`/`.fill`). Fixed by
+installing `cupy-cuda12x[ctk]` and restarting the kernel. **Results (user
+-run, qBraid Lab, NVIDIA L4)**:
+
+| Backend | n_qubits | dtype | s/step |
+|---|---|---|---|
+| CPU (qBraid Lab) | 12 | complex128 | 15.62 |
+| CPU (qBraid Lab) | 10 | complex128 | 1.07 |
+| GPU (CuPy, L4) | 12 | complex128 | **7.42** |
+| GPU (CuPy, L4) | 12 | complex64 | **0.522** |
+| GPU (CuPy, L4) | 10 | complex128 | 0.309 |
+| GPU (CuPy, L4) | 10 | complex64 | 0.0168 |
+
+The qBraid Lab CPU numbers (15.62/1.07 s/step) are consistent with this
+project's own CPU benchmarks (~17-18/~0.7-0.75 s/step complex128),
+confirming the standalone script faithfully reproduces the optimized
+reservoir step.
 
 ### Restored 12q reference config?
 
-**Not restored.** On the only hardware actually benchmarked in this sprint
-(CPU-only), 12 qubits remains NO-GO: complex128 (~17-18 s/step, safe
-default) and even complex64 (~10-11 s/step, opt-in reduced precision) both
-exceed the ≤8 s/step CPU target, so the trajectory-cached Sprint-4-scale
-pilot still projects well over the 12h threshold on this machine. The
-10-qubit fallback stands as the working configuration. If the pending GPU
-numbers (above) show ≤0.5 s/step at 12 qubits, that would be grounds to
-revisit this decision in a future sprint — not asserted here without that
-data.
+**Yes — contingent on GPU (CuPy) execution.** Projecting the Sprint 4
+pilot (4,374 cached-trajectory steps) at each measured rate:
+
+- **GPU, 12q, complex128: 4,374 x 7.42s / 3600 = 9.02 hours — GO** (under
+  the 12h threshold, using full double precision, no precision trade-off
+  needed).
+- GPU, 12q, complex64: 4,374 x 0.522s / 3600 = 0.63 hours — GO with a
+  large margin.
+- CPU, 12q, complex128 (qBraid Lab number): 4,374 x 15.62s / 3600 = 19.0
+  hours — still NO-GO on CPU alone, consistent with this project's own
+  CPU-only measurements.
+
+Per the orchestrator's explicit rule ("If 12q pilot projects ≤12h on ANY
+available hardware, 12q is RESTORED as reference"): the GPU path clears
+the bar, including at full complex128 precision, so **12 qubits is
+restored as the reference configuration for the sequential dissipative
+reservoir, on the condition that GPU (CuPy) execution is used**.
+CPU-only execution remains impractical at 12 qubits (the 10-qubit fallback
+is still the right choice when no GPU is available) — this is a
+hardware-availability conditional, not an unconditional reversal of the
+Sprint 1/2 CPU findings, which remain accurate for CPU-only environments.
 
 ### w_in verification (Phase 2.0d, re-confirmed)
 
@@ -247,10 +278,12 @@ the natural next step (unchanged from Sprint 2).
   not conclusively met. Real ~2.3x additional speedup found and applied
   (on top of Sprint 2's exact-propagator ~3x); complex64 gets within
   ~15-25% of both targets, complex128 does not reach them. Reported as-is.
-- **GPU verification**: not completed in this session (qBraid API key
-  provided is for quantum-job submission, not GPU code execution; a
-  standalone script was handed to the user for a manual qBraid Lab run).
-  12 qubits is **not** restored as the reference config absent that data.
+- **GPU verification**: completed by the user in qBraid Lab (NVIDIA L4)
+  after working around a CuPy CUDA-headers install issue
+  (`cupy-cuda12x[ctk]`). GPU 12q complex128: 7.42 s/step, projecting the
+  Sprint 4 pilot to ~9.0h — **GO**. 12 qubits is **restored** as the
+  reference configuration, contingent on GPU (CuPy) execution; CPU-only
+  environments still use the 10-qubit fallback.
 - **NARMA10 gate re-run at valid protocol**: done. Best full-protocol NMSE
   0.224 (train=3000, test=1000, n_train/n_features=4.55x, reported
   explicitly per the spec's fallback for the "5x" rule). **Gate still

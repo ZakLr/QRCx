@@ -27,10 +27,12 @@ large Hilbert space (2^N) as a feature source.
 (36 single-body + 198 two-body Pauli correlators — `3N + 3·C(N,2)` for
 N=12). 10 qubits is the only permitted fallback; no other qubit count
 appears in the reference pipeline. **The new sequential dissipative
-reservoir (not the v4 windowed reservoir) currently runs at the 10-qubit
-fallback**, since 12-qubit density-matrix simulation is too slow on
-CPU-only hardware to meet the project's wall-clock budget — see Known
-Limitations and `docs/sprint_log/SPRINT_1_REPORT.md`.
+reservoir (not the v4 windowed reservoir) runs at 12 qubits when a GPU
+(CuPy) is available** — verified at ~7.4s/step on an NVIDIA L4, projecting
+the pilot-scale run well under the project's wall-clock budget — **and
+falls back to 10 qubits on CPU-only hardware**, where 12-qubit
+density-matrix simulation is too slow. See Known Limitations and
+`docs/sprint_log/SPRINT_2_5_REPORT.md`.
 
 The prediction target is a **climatological anomaly**:
 
@@ -231,25 +233,24 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
   restricted injection at every damping rate tried, contradicting the
   "input erasure" theory. See `docs/sprint_log/SPRINT_2_5_REPORT.md` for
   the full trail and next-step recommendations.
-- **12-qubit sequential reservoir remains NO-GO on runtime** on the
-  CPU-only hardware available for development. Two real performance bugs
-  were found and fixed in Sprint 2.5 beyond Sprint 2's exact-propagator
-  pass — `np.einsum` wasn't dispatching to BLAS for local per-qubit gate
-  application (~3x slower than an equivalent `np.matmul`-based rewrite),
-  and the correlator-extraction partial trace was forcing an unnecessary
-  full-array transpose-copy (~300x slower than a direct `einsum` with
-  repeated axis labels) — combined with precomputing per-step-constant
-  coefficient arrays once instead of every step, this cut 12-qubit cost
-  from ~40.7 s/step (Sprint 2) to ~17-18 s/step (complex128) or ~10-11
-  s/step with an optional reduced-precision complex64 mode (verified
-  numerically stable). Both are close to, but do not conclusively clear,
-  the ≤8 s/step CPU target the orchestrator set. A GPU backend (CuPy,
-  auto-detected) is implemented; verifying it requires a real GPU, which
-  this development environment doesn't have — a self-contained benchmark
-  script (`scripts/gpu_verify_standalone.py`) was handed to the user to
-  run in qBraid Lab, with results pending. The 10-qubit fallback stands
-  as the working configuration (now ~13-14x faster than Sprint 1's
-  original Trotter path). See `docs/sprint_log/SPRINT_2_5_REPORT.md` and
+- **12-qubit sequential reservoir is GO on GPU, still NO-GO on CPU alone.**
+  Two real performance bugs were found and fixed in Sprint 2.5 beyond
+  Sprint 2's exact-propagator pass — `np.einsum` wasn't dispatching to
+  BLAS for local per-qubit gate application (~3x slower than an equivalent
+  `np.matmul`-based rewrite), and the correlator-extraction partial trace
+  was forcing an unnecessary full-array transpose-copy (~300x slower than
+  a direct `einsum` with repeated axis labels) — this cut 12-qubit CPU cost
+  from ~40.7 s/step (Sprint 2) to ~15.6-18 s/step (complex128), still over
+  the ≤8 s/step CPU target (projects to ~19h on CPU alone, still NO-GO).
+  **Verified on an NVIDIA L4 GPU (CuPy, user-run in qBraid Lab): 7.42
+  s/step at 12 qubits in full complex128 precision, projecting the
+  Sprint-4-scale pilot to ~9.0 hours — GO**, and 0.52 s/step with an
+  optional reduced-precision complex64 mode (~0.63h, comfortably GO). Per
+  project policy ("if the pilot projects ≤12h on ANY available hardware,
+  12 qubits is restored"), **12 qubits is the reference configuration for
+  this reservoir when a GPU is available; the 10-qubit fallback is used on
+  CPU-only hardware.** See `docs/sprint_log/SPRINT_2_5_REPORT.md`,
+  `results/gpu_verification.json`, and
   `results/sequential_backend_benchmark.json`.
 - **Reservoir metrics (MC, IPC) exist but are not wired into the
   `QRCPipeline` orchestrator end-to-end** — they're callable directly

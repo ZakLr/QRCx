@@ -1,0 +1,22 @@
+{
+  "source": "scripts/gpu_verify_standalone.py, run by the user in qBraid Lab",
+  "gpu_device": "NVIDIA L4",
+  "note": "cupy-cuda12x initially failed with 'RuntimeError: Failed to find CUDA headers'; fixed by installing cupy-cuda12x[ctk] and restarting the kernel.",
+  "measurements": {
+    "cpu_qbraid_lab_n12_complex128_s_per_step": 15.6198,
+    "cpu_qbraid_lab_n10_complex128_s_per_step": 1.0716,
+    "gpu_n12_complex128_s_per_step": 7.4196,
+    "gpu_n12_complex64_s_per_step": 0.5216,
+    "gpu_n10_complex128_s_per_step": 0.3093,
+    "gpu_n10_complex64_s_per_step": 0.0168
+  },
+  "pilot_projection": {
+    "cached_steps": 4374,
+    "go_threshold_hours": 12.0,
+    "gpu_n12_complex128_hours": 9.0163,
+    "gpu_n12_complex64_hours": 0.6335,
+    "cpu_n12_complex128_hours": 18.977
+  },
+  "decision": "GO_12Q_VIA_GPU",
+  "note_2": "12 qubits restored as reference configuration, contingent on GPU (CuPy) execution being available. CPU-only environments still use the 10-qubit fallback (CPU projection 18.98h remains NO-GO, consistent with Sprint 1/2/2.5 CPU-only findings)."
+}

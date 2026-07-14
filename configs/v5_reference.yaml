@@ -15,9 +15,19 @@
 # This is the best config found, frozen for reproducibility of the
 # reported numbers (NMSE, MC, IPC) -- not an endorsement that it is ready
 # for production use.
+#
+# GPU UPDATE (Sprint 2.5, results/gpu_verification.json): 12 qubits is now
+# GO on GPU (CuPy; verified 7.42 s/step complex128 on an NVIDIA L4,
+# projecting the Sprint 4 pilot to ~9.0h) and is the project's reference
+# qubit count when a GPU is available. The NARMA10 tuning below (w_in,
+# gamma1, NMSE) was measured AT n_qubits=10 specifically (10-qubit w_in
+# vector, 10-qubit feature dimension) -- it has NOT been re-tuned/verified
+# at 12 qubits. n_qubits stays 10 in this frozen config to keep it
+# internally consistent with the numbers actually measured; re-tuning at
+# 12 qubits on GPU is a natural next step, not done here.
 
 reservoir:
-  n_qubits: 10          # runtime-gate fallback on CPU-only hardware; 12q remains NO-GO (see SPRINT_2_5_REPORT.md)
+  n_qubits: 10          # this frozen config's tuning is 10-qubit-specific; 12q is GPU-viable but not yet re-tuned (see note above)
   tau: 1.0
   trotter_steps: 10
   J: 1.0
