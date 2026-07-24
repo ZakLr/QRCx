@@ -26,6 +26,7 @@ class ExperimentConfig:
     results_path: str = "./results.json"
     noise_sweep: bool = False
     noise_p_values: list[float] = field(default_factory=lambda: [0.0, 1e-3, 5e-3, 1e-2, 5e-2])
+    fast_mode: bool = True
 
     def to_yaml(self, path: Path) -> None:
         with open(path, "w") as f:

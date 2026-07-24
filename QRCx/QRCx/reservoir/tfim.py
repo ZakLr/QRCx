@@ -54,6 +54,13 @@ class AtmosphericQRC(BaseReservoir):
     def jg_ratio(self) -> float:
         return self._jg_ratio
 
+    @property
+    def n_features(self) -> int:
+        """Readout feature count: 3N single-body + 3*C(N,2) two-body
+        correlators. Single source of truth for transform()'s output width
+        and for dimension-matched ESN sizing (baselines/fairness.py)."""
+        return 3 * self.n_qubits + 3 * self.n_qubits * (self.n_qubits - 1) // 2
+
     def _circuit(self, x: np.ndarray) -> np.ndarray:
         assert x.ndim == 1
 
@@ -78,7 +85,7 @@ class AtmosphericQRC(BaseReservoir):
     def transform(self, X: np.ndarray) -> np.ndarray:
         assert X.ndim == 3, f"Expected 3D input (n, W, d), got shape {X.shape}"
         n_samples, W, d = X.shape
-        n_features = 3 * self.n_qubits + 3 * self.n_qubits * (self.n_qubits - 1) // 2
+        n_features = self.n_features
         features = np.zeros((n_samples, n_features), dtype=np.float64)
 
         for i in range(n_samples):

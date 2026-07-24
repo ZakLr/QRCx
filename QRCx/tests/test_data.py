@@ -32,6 +32,6 @@ def test_preprocess_shapes():
         },
     )
     result = preprocess(df)
-    assert result["X_train"].shape[1:] == (24, 10)
+    assert result["X_train"].shape[1:] == (24, 13)
     assert result["y_train"].shape[1] == 2
     assert "target_col_idx" in result

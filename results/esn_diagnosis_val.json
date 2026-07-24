@@ -1,0 +1,65 @@
+{
+  "eval_split": "val",
+  "esn_nodes": 200,
+  "eval_horizons": [
+    1,
+    6
+  ],
+  "dod_threshold_skill_1h": -0.05,
+  "dod_pass": true,
+  "stages": {
+    "broken": {
+      "wall_clock_s": 0.9278085231781006,
+      "skill": {
+        "1": -5.338894477055744,
+        "6": -0.14353711398788782
+      },
+      "rmse": {
+        "1": 0.4865178400284024,
+        "6": 0.6880963918582577
+      }
+    },
+    "fixed_fast_grid": {
+      "wall_clock_s": 5.111142158508301,
+      "skill": {
+        "1": -0.2971439667123794,
+        "6": 0.155642545726011
+      },
+      "rmse": {
+        "1": 0.22008279804764969,
+        "6": 0.5912720082289193
+      }
+    },
+    "fixed_full_grid": {
+      "wall_clock_s": 380.867178440094,
+      "skill": {
+        "1": 0.1289904629610631,
+        "6": 0.24552363071587602
+      },
+      "rmse": {
+        "1": 0.1803447333436506,
+        "6": 0.5589165496020835
+      },
+      "significance_vs_persistence": {
+        "1": {
+          "dm_stat": -11.0075823640102,
+          "dm_p_value": 0.0,
+          "dm_maxlags": 0,
+          "skill_diff_ci_lower": 0.10487735848645012,
+          "skill_diff_ci_upper": 0.15405613374409277,
+          "skill_diff_point_estimate": 0.1289904629610631,
+          "n_boot": 2000
+        },
+        "6": {
+          "dm_stat": -9.499471740998047,
+          "dm_p_value": 0.0,
+          "dm_maxlags": 5,
+          "skill_diff_ci_lower": 0.20058943539743754,
+          "skill_diff_ci_upper": 0.2889277179986488,
+          "skill_diff_point_estimate": 0.24552363071587602,
+          "n_boot": 2000
+        }
+      }
+    }
+  }
+}

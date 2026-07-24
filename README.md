@@ -194,14 +194,23 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
 
 ## Known limitations
 
-- **Feature set gap**: the canonical preprocessor
-  (`QRCx/QRCx/data/preprocessor.py`) currently engineers 10 features
-  (`T_db, T_dew, SLP, WS, WD, RH, θ, VPD, u, v`), not the full 13-feature
-  set (missing `Wx, Wy, T_dep`, cyclical hour/day-of-year encodings). That
-  full 13-feature set exists only in the standalone `pipeline_demo.py`
-  (`engineer_features()`) and has not been ported into the canonical
-  package. Per policy this was **not** silently merged — reconciling the
-  two is deferred to a later sprint.
+- **Feature set gap — CLOSED (Sprint 3)**: the canonical preprocessor
+  (`QRCx/QRCx/data/preprocessor.py::build_features`) now engineers the
+  full 13-feature set (`T_db, T_dew, RH, WS, SLP, WD, Wx, Wy, T_dep,
+  hour_sin, hour_cos, doy_sin, doy_cos`), ported from `pipeline_demo.py`'s
+  `engineer_features()` and replacing the previous 10-feature set
+  (`θ, VPD, u, v` dropped, not merged alongside — see
+  `docs/evaluation_protocol.md`).
+- **ESN and ARIMA baselines — FIXED (Sprint 3)**: the pre-Sprint-3 ESN fed
+  reservoirpy flattened 24h windows instead of the genuine hourly
+  sequence (a target/input-alignment bug, not a hyperparameter problem)
+  and never tuned `leak_rate`/`spectral_radius`/`input_scaling`/`ridge`
+  against a validation split, producing skill of roughly -400% to -1400%
+  vs. persistence on real KORD data. ARIMA separately returned the
+  identical forecast array for every horizon. Both fixed; tuned ESN
+  (full 384-point grid) now achieves **+6.2% skill at 1h, +14.6% at 6h**
+  on real KORD data — see `docs/evaluation_protocol.md` and
+  `results/esn_diagnosis.json`/`results/baselines.json`.
 - **Noise injection unintegrated in the canonical package**: the
   `noise_sweep=True` config flag and `QRCx/QRCx/metrics/noise.py` exist,
   but `reservoir/tfim.py` does not apply noise and

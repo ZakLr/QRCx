@@ -200,7 +200,6 @@ class QRCPipeline:
         return self.results
 
     def _run_baseline(self, name: str, data: dict) -> dict:
-        y_train = data["y_train"][:, 0]
         y_test = data["y_test"][:, 0]
         target_col_idx = data["target_col_idx"]
         if name == "persistence":
@@ -208,11 +207,19 @@ class QRCPipeline:
             return persistence.forecast(data["X_test"], y_test, horizons=self.horizons, target_col_idx=target_col_idx)
         elif name == "arima":
             from .baselines import arima
-            return arima.forecast(y_train, y_test, horizons=self.horizons)
+            return arima.forecast(
+                data["train_seq"], data["test_seq"], target_col_idx, self.horizons,
+                valid_idx=data["test_valid_idx"],
+            )
         elif "esn" in name:
             from .baselines import esn
             size = int(name.replace("esn", ""))
-            return esn.forecast(data["X_train"], y_train, data["X_test"], y_test, reservoir_size=size, horizons=self.horizons)
+            return esn.forecast(
+                data["train_seq"], data["test_seq"], target_col_idx, self.horizons,
+                reservoir_size=size, val_seq=data["val_seq"],
+                seed=self.config.seed, fast_mode=self.config.fast_mode,
+                valid_idx=data["test_valid_idx"],
+            )
         raise ValueError(f"Unknown baseline: {name}")
 
     def run(self) -> "ExperimentResults":
