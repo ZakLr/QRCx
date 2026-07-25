@@ -4,6 +4,8 @@ from QRCx.reservoir.sequential import SequentialDissipativeQRC
 from QRCx.metrics.reservoir_sequential import (
     measure_memory_capacity_sequential,
     measure_ipc_sequential,
+    measure_ipc_by_degree,
+    drive_iid_gaussian,
 )
 
 N_QUBITS = 4  # small for test speed; reference config is 12 (see README)
@@ -41,3 +43,22 @@ def test_shuffle_surrogate_thresholding_zeroes_below_null_and_never_exceeds_raw(
     )
     assert ipc["total_ipc"] <= ipc["total_ipc_raw"] + 1e-9
     assert ipc["total_ipc"] == ipc["linear_ipc"] + ipc["nonlinear_ipc"]
+
+
+def test_ipc_by_degree_matches_measure_ipc_sequential_for_degrees_1_and_2():
+    """Sprint 5's degree-generalized IPC must reproduce the already-
+    validated linear/quadratic split from measure_ipc_sequential exactly
+    (same math, same Hermite polynomials for degree 1/2) when given the
+    same precomputed (u, features) drive -- only degree 3 is new."""
+    qrc = SequentialDissipativeQRC(n_qubits=N_QUBITS, trotter_steps=3, gamma1=0.05, gamma2=0.02, washout=0)
+    u, feats = drive_iid_gaussian(qrc, n_steps=100, seed=0)
+    old = measure_ipc_sequential(u=u, features=feats, max_lag=8)
+    new = measure_ipc_by_degree(u=u, features=feats, max_lag=8, degrees=(1, 2, 3))
+    assert new["C"].shape == (3, len(new["lags"]))
+    assert new["lags"][0] == 0  # lag=0 included (unlike measure_ipc_sequential, which starts at lag=1)
+    # Sum over lags>=1 only, to compare against measure_ipc_sequential (which never includes lag=0)
+    lag_ge1 = [i for i, k in enumerate(new["lags"]) if k >= 1]
+    assert abs(new["C"][0, lag_ge1].sum() - old["linear_ipc"]) < 1e-9
+    assert abs(new["C"][1, lag_ge1].sum() - old["nonlinear_ipc"]) < 1e-9
+    assert np.all(new["C"] >= -1e-9)
+    assert np.isfinite(new["C"][2].sum())

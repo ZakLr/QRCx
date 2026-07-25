@@ -193,3 +193,70 @@ def measure_ipc_sequential(
         "max_lag": max_lag,
         "threshold_surrogates": threshold_surrogates,
     }
+
+
+def _hermite_probabilists(u: np.ndarray, degree: int) -> np.ndarray:
+    """Probabilists' Hermite polynomials He_d(u) -- the orthogonal basis
+    for a standard-normal-distributed variable (E[He_i(u) He_j(u)] = 0 for
+    i != j when u ~ N(0,1)), matching this project's iid standard-normal
+    drive convention. He_1=u, He_2=u^2-1, He_3=u^3-3u (all zero-mean under
+    the standard normal measure)."""
+    if degree == 1:
+        return u
+    if degree == 2:
+        return u ** 2 - 1.0
+    if degree == 3:
+        return u ** 3 - 3.0 * u
+    raise ValueError(f"degree {degree} not supported (only 1, 2, 3 implemented)")
+
+
+def measure_ipc_by_degree(
+    qrc=None, n_steps: int = 500, max_lag: int = 24, degrees=(1, 2, 3), ridge_alpha: float = 1e-2, seed: int = 1,
+    u: np.ndarray = None, features: np.ndarray = None,
+) -> dict:
+    """Sprint 5 extension of `measure_ipc_sequential` to arbitrary low-order
+    degree (default 1-3, generalizing that function's fixed linear+
+    quadratic split) via probabilists' Hermite polynomials of the iid
+    standard-normal drive `u` — the correct orthogonal basis for this
+    project's Gaussian-drive convention (see `_hermite_probabilists`).
+    Independent per-(lag, degree) Ridge regression, train=test, same
+    protocol as `measure_ipc_sequential` and `task_demand.compute_demand_profile`
+    (so the two produce directly comparable `C`/`D` matrices of identical
+    shape/axis convention for `Σ min(C, D)` matching).
+
+    Returns `C` (len(degrees) x max_lag array of R^2 capacity values) plus
+    metadata. Does NOT replace `measure_ipc_sequential` (kept as-is,
+    unmodified, for backward compatibility with existing Sprint 2-4
+    results/tests) -- this is a new, additive function for Sprint 5.
+    """
+    if u is None or features is None:
+        u, features = drive_iid_gaussian(qrc, n_steps, seed)
+    n_steps = len(u)
+    degrees = list(degrees)
+
+    # lags start at 0 (not 1, unlike measure_ipc_sequential/MC): lag=0 is a
+    # legitimate, commonly-included IPC component (Dambre et al. 2012's
+    # total capacity sums over k=0,1,2,... too, representing the readout's
+    # instantaneous nonlinear-transform capacity of the CURRENT input) --
+    # included here specifically so `lags` aligns with
+    # `task_demand.compute_demand_profile`'s `delays` (which also starts at
+    # 0) for direct Σ min(C, D) matching.
+    lags = [k for k in range(0, max_lag + 1) if k < n_steps]
+    C = np.zeros((len(degrees), len(lags)))
+    for di, degree in enumerate(degrees):
+        target_full = _hermite_probabilists(u, degree)
+        for ki, k in enumerate(lags):
+            if k == 0:
+                target = target_full
+                state = features
+            else:
+                target = target_full[:-k]
+                state = features[k:]
+            model = Ridge(alpha=ridge_alpha).fit(state, target)
+            pred = model.predict(state)
+            C[di, ki] = _r_squared(target, pred)
+
+    return {
+        "C": C, "degrees": degrees, "lags": lags,
+        "total_capacity": float(C.sum()), "n_steps": n_steps, "max_lag": max_lag,
+    }

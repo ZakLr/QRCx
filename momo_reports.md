@@ -274,14 +274,45 @@ Full detail: `results/sprint4_verdict.json`, `results/sprint4_v5_results.json`,
 `results/sprint4_v4_gpu_results_used_for_verdict.json`,
 `results/sprint4_pilot_baselines.json`.
 
+## 2026-07-25 — Sprint 4 closed out; Sprint 5 (IPC-matched tuning) done
+
+Sprint 4 committed (see prior entries for the full result). Per the
+master plan, Sprint 5 proceeds regardless of Sprint 4's Branch-B outcome
+(the plan explicitly anticipates "sequential QRC doesn't beat the
+dimension-matched ESN" as a real possibility, mitigated by rewarding
+honest negative results).
+
+**Sprint 5 — IPC-matched reservoir tuning** (the paper's novel-
+contribution flag): built a task-demand profile (how much of the real
+KORD forecasting task's predictability comes from low-order Legendre-
+polynomial functions of its own lagged history) and matched it against
+the reservoir's own supply-side IPC (extended the existing degree-1/2
+framework to degree 3 via Hermite polynomials, verified against the
+already-validated implementation to ~1e-9 before using it). All new code
+covered by 7 new unit tests, all passing.
+
+Real numbers, coarse (gamma1, input_scaling) grid at n_qubits=10 (CPU
+fallback), 18 configs: best matched config gamma1=0.3, a=0.1 (captured
+capacity 9.26, vs. the Sprint 2 reference's 4.53 — a real, +104%
+improvement in demand/supply overlap). **Honest finding: this did NOT
+translate into better forecast skill at h=6 or h=12** on a real (reduced-
+sample) pilot comparison — matched wins at h=1/h=3, reference wins at
+h=6/h=12. The sprint spec's own named hypothesis ("matched config
+improves 6h skill") is not confirmed. Reported as a genuine negative
+result, not spun — plausible explanation logged in
+`docs/sprint_log/SPRINT_5_REPORT.md` (demand was computed on the
+target's univariate self-history; the real readout uses the full
+multivariate 13-feature state, so univariate-optimal isn't guaranteed
+multivariate-optimal).
+
+Figures: `figures/sprint5_demand_supply_heatmaps.png`,
+`figures/sprint5_captured_capacity_bar.png`. Full data:
+`results/ipc_matching.json`. Draft paper subsection:
+`docs/ipc_matching.md`.
+
 ## Next up
 
-- Decide whether the reduced 2-drive v5 scope is sufficient for the
-  Sprint 4 report, or whether to spend the (now much cheaper, ~21h)
-  extra compute on the full 12-drive ablation (V=4 + 2 more seeds) for a
-  more complete paper-grade result.
-- Write `docs/sprint_log/SPRINT_4_REPORT.md` with the full honest writeup
-  (branch declaration, DoD checklist, all bugs found: zz_feature_map
-  double-application, v5 CPU-roundtrip throughput bug x2, NaN-in-
-  continuous-sequence bug, qBraid instance-resume failure).
-- Git commit.
+- Full test suite re-run in progress (checking for regressions from the
+  new metrics modules) before committing Sprint 5.
+- Then: Sprint 6 (Full-Dataset Benchmark — the headline numbers, judge-
+  grade rigor) per the master plan's sequencing.

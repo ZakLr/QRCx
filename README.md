@@ -296,6 +296,19 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
   matrix mid-drive). See `docs/sprint_log/SPRINT_4_REPORT.md` and
   `momo_reports.md` for the full trail, all four bugs found, and every
   real number.
+- **Sprint 5: IPC-matched reservoir tuning — real matching found, but
+  the sprint's own stated hypothesis not confirmed**. Built a task-demand
+  profile (`QRCx/QRCx/metrics/task_demand.py`) and matched it against the
+  reservoir's supply-side IPC (extended to degree 3,
+  `measure_ipc_by_degree` in `QRCx/QRCx/metrics/reservoir_sequential.py`)
+  to tune `(gamma1, input_scaling)`. Real result: the matched config
+  (gamma1=0.3, a=0.1) captures substantially more overlapping capacity
+  than the Sprint 2 reference (9.26 vs. 4.53, +104%), but this did **not**
+  translate into better 6h forecast skill — the reference config still
+  wins at h=6 and h=12 on a real pilot comparison, only the matched
+  config wins at h=1/h=3. Reported honestly as a negative result for the
+  named hypothesis, not spun. See `docs/sprint_log/SPRINT_5_REPORT.md`
+  and `docs/ipc_matching.md`.
 
 ---
 
