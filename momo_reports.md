@@ -310,9 +310,61 @@ Figures: `figures/sprint5_demand_supply_heatmaps.png`,
 `results/ipc_matching.json`. Draft paper subsection:
 `docs/ipc_matching.md`.
 
+## 2026-07-25 — Sprint 6 (Full-Dataset Benchmark) real numbers + a real mistake
+
+Full 14-year KORD record (2011-2024) confirmed available with acceptable
+QC yield (missingness comparable to the 2019-2024 subset already used).
+Locked split: train 2011-2020, val 2021-2022, test 2023-2024 (extended
+`QRCx.data.splits.temporal_split`/`preprocess()` to accept val_year/
+test_year as either a single int, as before, or a `(start, end)` tuple —
+backward compatible, both paths tested).
+
+**Real val-split classical benchmark result** (170 min wall-clock, FAST_MODE,
+3-seed ESN, all 48 horizons DM-tested):
+`results/full_benchmark_val.json`. Headline confirms Sprint 4's pilot-scale
+finding at full 14-year scale: null-control Ridge (no reservoir at all,
++15.2%/+28.0% skill at h1/h6) matches or beats every ESN variant
+(dim-matched -15.2%/+28.1%, ESN-500 +6.9%/+30.8%, Residual-ESN
++14.5%/+30.9%) and both QRC architectures. Given real GPU-infrastructure
+time cost already spent in Sprint 4/5, decided (with the user) to reuse
+Sprint 4's real pilot-scale v4/v5 numbers as the headline QRC entries
+rather than launch another multi-hour qBraid campaign — flagged clearly
+as pilot-scale, not full-record.
+
+Also built and verified `scripts/reproduce.sh` (`--quick`, <30min,
+canonical val split; `--full`, the real Sprint 6 headline run, ~170min
+documented honestly).
+
+**Real mistake, caught and fixed**: ran `reproduce.sh --quick` (which does
+`pip install -e QRCx`) WHILE the locked test-split confirmatory run was
+still executing in the background, in the same shared Python environment.
+The pip install modified installed scikit-learn files on disk mid-flight,
+corrupting the long-running process's view of the package and crashing it
+~3 hours in (`ImportError: cannot import name 'get_tags'` deep inside
+sklearn's internal lazy-import chain) — a race condition I caused, not a
+real bug in the benchmark code (confirmed: KRR fits fine in a fresh
+process afterward). Relaunched the test-split run cleanly, and will not
+run anything else that touches the Python environment until it finishes.
+
+## 2026-07-25 — Sprint 6 complete: real, locked test-split headline numbers
+
+Test-split confirmatory run finished clean (139.6 min) after the relaunch.
+**Confirmed on the locked, one-time-touched test split**: null-control
+Ridge (+14.7%/+27.0% skill at h1/h6) still matches or beats every ESN
+variant and both QRC architectures (reused from Sprint 4's real pilot-scale
+numbers, +0.087%/+0.25% for v4, -3.51%/+5.79% for v5) — the same
+conclusion as val and as Sprint 4's pilot-scale finding. Not an artifact
+of tuning-set choice or dataset size.
+
+`scripts/reproduce.sh` built and the `--quick` mode verified for real
+(<12 min, real numbers). README results block regenerated with the full
+val+test table. Full writeup: `docs/sprint_log/SPRINT_6_REPORT.md`.
+
+Full test suite re-run in progress before committing (checking the
+`splits.py`/`preprocess()` val/test-as-range extension for regressions).
+
 ## Next up
 
-- Full test suite re-run in progress (checking for regressions from the
-  new metrics modules) before committing Sprint 5.
-- Then: Sprint 6 (Full-Dataset Benchmark — the headline numbers, judge-
-  grade rigor) per the master plan's sequencing.
+- Commit Sprint 6 once tests are green.
+- Then: per the master plan sequencing (S6→S8→S9, S7 pending organizer
+  reply), Sprint 8 (Scaling, Shots & Noise Characterization) is next.

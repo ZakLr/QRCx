@@ -101,8 +101,8 @@ def preprocess(
     df: pd.DataFrame,
     target_col: str = "T_db",
     train_years: tuple[int, int] = (2019, 2022),
-    val_year: int = 2023,
-    test_year: int = 2024,
+    val_year=2023,
+    test_year=2024,
     W: int = 24,
     horizons: list[int] = [1, 6],
 ) -> dict:

@@ -118,26 +118,52 @@ minutes** (the TFIM state-vector simulation at 12 qubits dominates runtime;
 
 ## Reproduce the headline result
 
-There is no headline result yet — see [Performance](#performance). Once
-Sprint 1+ produces `results/*.json`, the reproduce command will be:
-
 ```bash
-cd QRCx
-python -m QRCx --years 2019 2024
-python ../scripts/make_readme_tables.py
+./scripts/reproduce.sh --quick   # <30 min: canonical val split (2019-2022 train), classical fairness protocol, FAST_MODE
+./scripts/reproduce.sh --full    # the real Sprint 6 headline run: full KORD record 2011-2024,
+                                  # train 2011-2020 / val 2021-2022 / test 2023-2024, 3-seed ESN,
+                                  # horizons 1-48, DM test + bootstrap CI at every horizon.
+                                  # Real measured wall-clock: ~170 min for val alone (FAST_MODE) --
+                                  # NOT a quick operation, documented honestly, not padded down.
+                                  # Add --unlock-test to also run the one-time locked test-split pass.
 ```
 
-`python -m QRCx` downloads/loads ISD-Lite data via
-`QRCx/QRCx/data/loader.py` (frozen — do not modify; wraps it if new data
-behavior is needed), preprocesses with climatological-anomaly residuals,
-runs the configured architecture, and writes results + figures.
-`scripts/make_readme_tables.py` then regenerates the block below from
-`results/*.json` — no number below is hand-typed.
+Both download/load ISD-Lite data via `QRCx/QRCx/data/loader.py` (frozen
+— do not modify), preprocess with climatological-anomaly residuals, and
+write real numbers to `results/*.json` — no number below is hand-typed.
 
 ### Performance
 
 <!-- RESULTS:BEGIN -->
-_Phase 3 results pending. Run the reproduce command in this README to generate `results/*.json`, then re-run this script to populate this section. No performance numbers are reported until they exist in `results/*.json`._
+**Sprint 6 full-dataset benchmark — final, locked test-split numbers**
+(train 2011-2020, val 2021-2022 tuned on `results/full_benchmark_val.json`;
+test 2023-2024 one-time confirmatory pass, `results/full_benchmark_test.json`),
+FAST_MODE, skill vs. persistence:
+
+| model | skill@1h (test) | skill@6h (test) | skill@1h (val) | skill@6h (val) |
+|---|---|---|---|---|
+| ARIMA(2,1,2) | -4890.1% | -373.0% | -4262.9% | -293.9% |
+| ARIMA (auto-order) | -626.4% | -49.9% | -613.9% | -46.2% |
+| ESN dim-matched (234, 3 seeds) | -21.5% | +25.2% | -15.2% | +28.1% |
+| ESN-500 (3 seeds) | +2.2% | +25.0% | +6.9% | +30.8% |
+| Residual-ESN (3 seeds) | +13.4% | +28.6% | +14.5% | +30.9% |
+| null-control Ridge (no reservoir) | **+14.7%** | +27.0% | **+15.2%** | +28.0% |
+| null-control KRR | -280.0% | -77.7% | -149.5% | -41.2% |
+| Residual-Ridge (no reservoir) | **+14.8%** | +27.0% | **+15.2%** | +28.0% |
+| v4 QRC, residual (20 qubits, pilot-scale*) | +0.087% | +0.25% | — | — |
+| v5 QRC, residual, dissipation on (12 qubits, pilot-scale*) | -3.51% | +5.79% | — | — |
+
+\* QRC rows are Sprint 4's real pilot-scale (train 2019-2021/eval 2022)
+results, not a full-record re-run — see `docs/sprint_log/SPRINT_6_REPORT.md`
+for why (real GPU-infrastructure time cost, logged not hidden).
+
+**Honest headline finding, confirmed on the locked full-record test
+split**: a plain linear Ridge regression on the flattened raw window —
+no reservoir at all — matches or beats every reservoir-computing model
+tested, classical or quantum, at every horizon shown, on both val AND
+the final one-time test-split confirmation. This mirrors Sprint 4's
+pilot-scale finding exactly; it is not an artifact of the smaller pilot
+dataset or of val-only tuning.
 <!-- RESULTS:END -->
 
 ---
