@@ -15,6 +15,9 @@ data/isd/*.gz
 QRCx/data/isd/*.txt
 QRCx/data/isd/*.gz
 
+# Regeneratable GPU-handoff export (scripts/sprint4_export_pilot_seq.py)
+data/sprint4_pilot_seq.npz
+
 # Local cache/results scratch
 cache/
 *.cache

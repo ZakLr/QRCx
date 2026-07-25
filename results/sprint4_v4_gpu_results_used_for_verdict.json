@@ -1,0 +1,131 @@
+{
+  "cost_projection": {
+    "s_per_window": 0.130137327045,
+    "projected_hours": 0.8016459345972,
+    "sample_windows": 200,
+    "budget_hours": 6.0
+  },
+  "n_qubits": 20,
+  "n_layers": 3,
+  "trotter_steps": 10,
+  "seed": 42,
+  "batch_size": 256,
+  "dtype": "<class 'numpy.complex64'>",
+  "n_train_windows": 16571,
+  "n_val_windows": 5605,
+  "wall_clock_train_s": 2072.8157354070004,
+  "wall_clock_val_s": 701.096140222,
+  "s_per_window": 0.12508621372785897,
+  "horizons": [
+    1,
+    3,
+    6,
+    12
+  ],
+  "cells": [
+    {
+      "architecture": "direct",
+      "horizon": 1,
+      "rmse": 1.6309454670044599,
+      "skill_vs_persistence": -6.34305201559574,
+      "dm_vs_persistence": {
+        "dm_stat": 47.69563516557354,
+        "p_value": 0.0,
+        "n": 5605,
+        "maxlags": 0
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "residual",
+      "horizon": 1,
+      "rmse": 0.22191352169307077,
+      "skill_vs_persistence": 0.0008724597339364593,
+      "dm_vs_persistence": {
+        "dm_stat": -3.1623434911730386,
+        "p_value": 0.001565048380518741,
+        "n": 5605,
+        "maxlags": 0
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "direct",
+      "horizon": 3,
+      "rmse": 1.6248585749887121,
+      "skill_vs_persistence": -2.373890630593286,
+      "dm_vs_persistence": {
+        "dm_stat": 26.312514655917155,
+        "p_value": 0.0,
+        "n": 5605,
+        "maxlags": 2
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "residual",
+      "horizon": 3,
+      "rmse": 0.48065613359811515,
+      "skill_vs_persistence": 0.001955462065280855,
+      "dm_vs_persistence": {
+        "dm_stat": -3.7445531489526966,
+        "p_value": 0.00018071512017558966,
+        "n": 5605,
+        "maxlags": 2
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "direct",
+      "horizon": 6,
+      "rmse": 1.620991007621189,
+      "skill_vs_persistence": -1.0797210700388358,
+      "dm_vs_persistence": {
+        "dm_stat": 16.46150051137452,
+        "p_value": 0.0,
+        "n": 5605,
+        "maxlags": 5
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "residual",
+      "horizon": 6,
+      "rmse": 0.7774802709303806,
+      "skill_vs_persistence": 0.002497797093714782,
+      "dm_vs_persistence": {
+        "dm_stat": -3.388960665457996,
+        "p_value": 0.0007015807373855765,
+        "n": 5605,
+        "maxlags": 5
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "direct",
+      "horizon": 12,
+      "rmse": 1.6220974821072291,
+      "skill_vs_persistence": -0.4111679708043816,
+      "dm_vs_persistence": {
+        "dm_stat": 7.949598066122685,
+        "p_value": 1.7763568394002505e-15,
+        "n": 5605,
+        "maxlags": 11
+      },
+      "best_alpha": 100.0
+    },
+    {
+      "architecture": "residual",
+      "horizon": 12,
+      "rmse": 1.1476262703050886,
+      "skill_vs_persistence": 0.001605357894775672,
+      "dm_vs_persistence": {
+        "dm_stat": -1.3165609951264603,
+        "p_value": 0.18798582037108735,
+        "n": 5605,
+        "maxlags": 11
+      },
+      "best_alpha": 100.0
+    }
+  ]
+}

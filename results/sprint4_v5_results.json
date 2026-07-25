@@ -1,0 +1,336 @@
+{
+  "n_qubits": 12,
+  "dtype": "complex64",
+  "washout": 200,
+  "horizons": [
+    1,
+    3,
+    6,
+    12
+  ],
+  "w_in_seeds": [
+    123
+  ],
+  "gamma1_values": {
+    "tuned": 0.03,
+    "diagnostic_off": 0.0
+  },
+  "V_values": [
+    1
+  ],
+  "drives": [
+    {
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123,
+      "wall_clock_s": 2624.673656636,
+      "s_per_step": 0.07485380038318504
+    },
+    {
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123,
+      "wall_clock_s": 803.976502882,
+      "s_per_step": 0.022928830221366645
+    }
+  ],
+  "ablation_cells": [
+    {
+      "architecture": "direct",
+      "horizon": 1,
+      "rmse": 0.6013314573163194,
+      "skill_vs_persistence": -1.6377396008467189,
+      "dm_vs_persistence": {
+        "dm_stat": 1.6414587415662998,
+        "p_value": 0.10070222482782398,
+        "n": 8759,
+        "maxlags": 0
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8759,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 3,
+      "rmse": 0.7683997425682311,
+      "skill_vs_persistence": -0.5790266321204836,
+      "dm_vs_persistence": {
+        "dm_stat": 1.2013844000125755,
+        "p_value": 0.22960212461767826,
+        "n": 8757,
+        "maxlags": 2
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8757,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 6,
+      "rmse": 0.93583180200463,
+      "skill_vs_persistence": -0.21221741911426872,
+      "dm_vs_persistence": {
+        "dm_stat": 0.8653791239720133,
+        "p_value": 0.3868307352551017,
+        "n": 8754,
+        "maxlags": 5
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8754,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 12,
+      "rmse": 1.0180146052435002,
+      "skill_vs_persistence": 0.08757406037226756,
+      "dm_vs_persistence": {
+        "dm_stat": -3.0526339616254647,
+        "p_value": 0.0022684245504658307,
+        "n": 8748,
+        "maxlags": 11
+      },
+      "best_alpha": 0.01,
+      "n_eval": 8748,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 1,
+      "rmse": 0.23596652266172038,
+      "skill_vs_persistence": -0.03506682334016453,
+      "dm_vs_persistence": {
+        "dm_stat": 0.5638170999412023,
+        "p_value": 0.5728786130182308,
+        "n": 8759,
+        "maxlags": 0
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8759,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 3,
+      "rmse": 0.4932511836236108,
+      "skill_vs_persistence": -0.013608818586339888,
+      "dm_vs_persistence": {
+        "dm_stat": 0.17701565046400036,
+        "p_value": 0.8594960964142917,
+        "n": 8757,
+        "maxlags": 2
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8757,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 6,
+      "rmse": 0.727321721693715,
+      "skill_vs_persistence": 0.057873371637204185,
+      "dm_vs_persistence": {
+        "dm_stat": -1.3997835739472955,
+        "p_value": 0.1615781381353436,
+        "n": 8754,
+        "maxlags": 5
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8754,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 12,
+      "rmse": 0.9551465762331902,
+      "skill_vs_persistence": 0.14392140563314926,
+      "dm_vs_persistence": {
+        "dm_stat": -10.135083295047513,
+        "p_value": 0.0,
+        "n": 8748,
+        "maxlags": 11
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8748,
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 1,
+      "rmse": 1.6029757913114735,
+      "skill_vs_persistence": -6.031451078263971,
+      "dm_vs_persistence": {
+        "dm_stat": 55.6582317323198,
+        "p_value": 0.0,
+        "n": 8759,
+        "maxlags": 0
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8759,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 3,
+      "rmse": 1.6025898615854137,
+      "skill_vs_persistence": -2.2932495049410377,
+      "dm_vs_persistence": {
+        "dm_stat": 30.026472842309058,
+        "p_value": 0.0,
+        "n": 8757,
+        "maxlags": 2
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8757,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 6,
+      "rmse": 1.6018566496363449,
+      "skill_vs_persistence": -1.074943947677034,
+      "dm_vs_persistence": {
+        "dm_stat": 18.25413499781711,
+        "p_value": 0.0,
+        "n": 8754,
+        "maxlags": 5
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8754,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "direct",
+      "horizon": 12,
+      "rmse": 1.6007854761933178,
+      "skill_vs_persistence": -0.4347517066405475,
+      "dm_vs_persistence": {
+        "dm_stat": 8.934883012642826,
+        "p_value": 0.0,
+        "n": 8748,
+        "maxlags": 11
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8748,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 1,
+      "rmse": 0.22798555395969797,
+      "skill_vs_persistence": -5.8315233180783466e-05,
+      "dm_vs_persistence": {
+        "dm_stat": 2.455657697925052,
+        "p_value": 0.014062703687380163,
+        "n": 8759,
+        "maxlags": 0
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8759,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 3,
+      "rmse": 0.4866989774770681,
+      "skill_vs_persistence": -0.0001443320289205019,
+      "dm_vs_persistence": {
+        "dm_stat": 2.380891054344484,
+        "p_value": 0.01727081892622806,
+        "n": 8757,
+        "maxlags": 2
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8757,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 6,
+      "rmse": 0.772238027441482,
+      "skill_vs_persistence": -0.0003083743913798731,
+      "dm_vs_persistence": {
+        "dm_stat": 1.8885648555581307,
+        "p_value": 0.05895015990877028,
+        "n": 8754,
+        "maxlags": 5
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8754,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    },
+    {
+      "architecture": "residual",
+      "horizon": 12,
+      "rmse": 1.1164365800316276,
+      "skill_vs_persistence": -0.0006395687481064449,
+      "dm_vs_persistence": {
+        "dm_stat": 1.390250188627795,
+        "p_value": 0.1644529178855776,
+        "n": 8748,
+        "maxlags": 11
+      },
+      "best_alpha": 0.001,
+      "n_eval": 8748,
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "V": 1,
+      "w_in_seed": 123
+    }
+  ],
+  "scope_reduction": {
+    "applied": false,
+    "reason": null,
+    "probe_s_per_step": 0.07233348917,
+    "probe_V": 1,
+    "train_steps_used": 26304
+  }
+}

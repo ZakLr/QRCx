@@ -265,6 +265,37 @@ _Phase 3 results pending. Run the reproduce command in this README to generate `
   `QRCPipeline` orchestrator end-to-end** — they're callable directly
   (`QRCx.measure_memory_capacity`, `QRCx.measure_ipc_24h`) but not part of
   `python -m QRCx`'s default run.
+- **`ZZFeatureMap.circuit()` was applying every gate twice — FIXED
+  (Sprint 4)**: `encode()` built PennyLane ops inside the active QNode's
+  recording context (which auto-queues at construction time), then
+  `circuit()` called `qml.apply(op)` on top of that, queuing every gate a
+  second time. For Hadamards (H·H = I, nothing intervening) this silently
+  cancelled them out completely — the encoder never actually created
+  superposition — and every RZ/IsingZZ angle was doubled. Found while
+  cross-validating a from-scratch GPU reimplementation against the real
+  circuit and finding O(1) disagreement. Fixed via
+  `qml.QueuingManager.stop_recording()`; verified to ~1e-8 agreement
+  after the fix, 33/33 tests still green. See
+  `docs/sprint_log/SPRINT_4_REPORT.md`.
+- **Sprint 4 (REVISED) pilot verdict: paradigm validated, not yet
+  competitive (Branch B)**. Real pilot evaluation (train 2019-2021, eval
+  2022, real KORD data) on both v4 (windowed, 16/20 qubits) and v5
+  (sequential dissipative, 12-qubit reference config, on an H200 GPU).
+  **V1 (paradigm validation): PASS** — a same-architecture ablation
+  (dissipation on vs. off) shows a real, DM-significant effect (v5
+  residual, h=12: +14.4% skill vs. persistence, p≈0) that vanishes to
+  ~0% with dissipation off, confirming the mechanism is load-bearing, not
+  incidental. **V2 (competitive verdict): FAIL** — the best QRC result
+  still loses to dimension-matched ESN at 3 of 4 horizons, and loses to a
+  plain linear Ridge control (no reservoir at all) at every horizon on
+  this pilot task. v5's original 12-drive ablation plan (2 gamma1 × 2
+  multiplexing × 3 seeds) was reduced to 2 drives (1 seed, V=1 only) for
+  real time-budget reasons after two real throughput bugs were found and
+  fixed (~75x combined speedup) plus a NaN-in-continuous-sequence bug
+  (real KORD missing-data readings corrupting the recurrent density
+  matrix mid-drive). See `docs/sprint_log/SPRINT_4_REPORT.md` and
+  `momo_reports.md` for the full trail, all four bugs found, and every
+  real number.
 
 ---
 

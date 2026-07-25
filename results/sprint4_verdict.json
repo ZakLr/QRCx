@@ -1,0 +1,297 @@
+{
+  "inputs_available": {
+    "baselines": true,
+    "v4_gpu": true,
+    "v5_gpu": true
+  },
+  "pass_alpha": 0.05,
+  "caveat": "V1/V2 numeric criteria below are this script's own significance-based stand-in (DM test, alpha=0.05), NOT necessarily the literal thresholds from the original Sprint 4 (REVISED) chat spec -- see this file's docstring.",
+  "v1_paradigm_validation": {
+    "pass": true,
+    "detail": [
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 1,
+        "skill_pct": -163.7739600846719,
+        "dm_p_value": 0.10070222482782398,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 1,
+        "skill_pct": -634.305201559574,
+        "dm_p_value": 0.0,
+        "beats_persistence": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 1,
+        "skill_pct": -0.0058315233180783466,
+        "dm_p_value": 0.014062703687380163,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 1,
+        "skill_pct": 0.08724597339364593,
+        "dm_p_value": 0.001565048380518741,
+        "beats_persistence": true
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 3,
+        "skill_pct": -57.90266321204835,
+        "dm_p_value": 0.22960212461767826,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 3,
+        "skill_pct": -237.38906305932858,
+        "dm_p_value": 0.0,
+        "beats_persistence": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 3,
+        "skill_pct": -0.01443320289205019,
+        "dm_p_value": 0.01727081892622806,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 3,
+        "skill_pct": 0.19554620652808552,
+        "dm_p_value": 0.00018071512017558966,
+        "beats_persistence": true
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 6,
+        "skill_pct": -21.22174191142687,
+        "dm_p_value": 0.3868307352551017,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 6,
+        "skill_pct": -107.97210700388358,
+        "dm_p_value": 0.0,
+        "beats_persistence": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 6,
+        "skill_pct": 5.7873371637204185,
+        "dm_p_value": 0.1615781381353436,
+        "beats_persistence": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 6,
+        "skill_pct": 0.2497797093714782,
+        "dm_p_value": 0.0007015807373855765,
+        "beats_persistence": true
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 12,
+        "skill_pct": 8.757406037226756,
+        "dm_p_value": 0.0022684245504658307,
+        "beats_persistence": true
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 12,
+        "skill_pct": -41.11679708043816,
+        "dm_p_value": 1.7763568394002505e-15,
+        "beats_persistence": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 12,
+        "skill_pct": 14.392140563314925,
+        "dm_p_value": 0.0,
+        "beats_persistence": true
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 12,
+        "skill_pct": 0.1605357894775672,
+        "dm_p_value": 0.18798582037108735,
+        "beats_persistence": false
+      }
+    ],
+    "criterion": "at least one QRC architecture (v4 windowed or v5 sequential) beats persistence by a DM-significant margin (p < 0.05, squared-error DM test computed in the respective GPU handoff script) at >=1 (architecture, horizon) cell."
+  },
+  "v2_competitive_verdict": {
+    "pass": false,
+    "detail": [
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 1,
+        "qrc_skill_pct": -163.7739600846719,
+        "esn_skill_pct": -90.77808400391478,
+        "margin_pct": -72.99587608075711,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 1,
+        "qrc_skill_pct": -634.305201559574,
+        "esn_skill_pct": -90.77808400391478,
+        "margin_pct": -543.5271175556593,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 1,
+        "qrc_skill_pct": -0.0058315233180783466,
+        "esn_skill_pct": -90.77808400391478,
+        "margin_pct": 90.7722524805967,
+        "qrc_ahead": true
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 1,
+        "qrc_skill_pct": 0.08724597339364593,
+        "esn_skill_pct": -90.77808400391478,
+        "margin_pct": 90.86532997730843,
+        "qrc_ahead": true
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 3,
+        "qrc_skill_pct": -57.90266321204835,
+        "esn_skill_pct": 2.058547448592396,
+        "margin_pct": -59.961210660640745,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 3,
+        "qrc_skill_pct": -237.38906305932858,
+        "esn_skill_pct": 2.058547448592396,
+        "margin_pct": -239.44761050792098,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 3,
+        "qrc_skill_pct": -0.01443320289205019,
+        "esn_skill_pct": 2.058547448592396,
+        "margin_pct": -2.072980651484446,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 3,
+        "qrc_skill_pct": 0.19554620652808552,
+        "esn_skill_pct": 2.058547448592396,
+        "margin_pct": -1.8630012420643105,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 6,
+        "qrc_skill_pct": -21.22174191142687,
+        "esn_skill_pct": 17.856643235033275,
+        "margin_pct": -39.07838514646015,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 6,
+        "qrc_skill_pct": -107.97210700388358,
+        "esn_skill_pct": 17.856643235033275,
+        "margin_pct": -125.82875023891685,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 6,
+        "qrc_skill_pct": 5.7873371637204185,
+        "esn_skill_pct": 17.856643235033275,
+        "margin_pct": -12.069306071312855,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 6,
+        "qrc_skill_pct": 0.2497797093714782,
+        "esn_skill_pct": 17.856643235033275,
+        "margin_pct": -17.606863525661797,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "direct",
+        "horizon": 12,
+        "qrc_skill_pct": 8.757406037226756,
+        "esn_skill_pct": 27.494024905683435,
+        "margin_pct": -18.73661886845668,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "direct",
+        "horizon": 12,
+        "qrc_skill_pct": -41.11679708043816,
+        "esn_skill_pct": 27.494024905683435,
+        "margin_pct": -68.61082198612159,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v5_sequential",
+        "architecture": "residual",
+        "horizon": 12,
+        "qrc_skill_pct": 14.392140563314925,
+        "esn_skill_pct": 27.494024905683435,
+        "margin_pct": -13.10188434236851,
+        "qrc_ahead": false
+      },
+      {
+        "source": "v4_windowed",
+        "architecture": "residual",
+        "horizon": 12,
+        "qrc_skill_pct": 0.1605357894775672,
+        "esn_skill_pct": 27.494024905683435,
+        "margin_pct": -27.333489116205868,
+        "qrc_ahead": false
+      }
+    ],
+    "best_pairing_wins": "1/4 horizons",
+    "esn_comparison_key": "esn_dim_matched",
+    "criterion": "the best-performing (architecture, source) pairing beats dimension-matched ESN's point-estimate skill at a MAJORITY of horizons (not just h=1 -- an earlier version of this criterion checked h=1 only, which passed almost automatically since ESN's real skill happens to be catastrophically bad specifically at h=1; fixed after noticing ESN actually wins at h=3/6/12 in the real run). POINT ESTIMATE ONLY, not DM-tested (raw ESN predictions are not currently saved to results/sprint4_pilot_baselines.json)."
+  },
+  "branch": "BRANCH_B: paradigm validated (beats persistence) but NOT competitive with ESN -- report honestly as a physics-interesting, not-yet-practical result",
+  "verdict": "SEE branch"
+}
