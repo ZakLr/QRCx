@@ -363,8 +363,43 @@ val+test table. Full writeup: `docs/sprint_log/SPRINT_6_REPORT.md`.
 Full test suite re-run in progress before committing (checking the
 `splits.py`/`preprocess()` val/test-as-range extension for regressions).
 
+## 2026-07-25 — Sprint 8 (Scaling, Shots & Noise Characterization) done
+
+Real data for all four required axes:
+
+- **Qubit scaling** (N=4,6,8,10,12, reference config, real pilot data):
+  MC/IPC non-monotonic (dip ~N=8-10, sharp rise at N=12) — a real
+  measured pattern, not yet explained further. One forecast-skill data
+  point (N=8, h=6: -66.5%) is very likely a small-sample artifact (only
+  ~74 effective test points at that sample size) rather than a real
+  qubit-count effect — flagged honestly, not smoothed over.
+- **Shot noise**: real, positive hardware-readiness finding — skill is
+  statistically indistinguishable from exact even at S=1,000 shots (well
+  inside the bootstrap CI half-width of 4.55%). Simulated via post-hoc
+  binomial sampling of the already-driven exact correlators (no
+  redundant re-drives per shot budget).
+- **Encoding density**: found a real, previously-undiscovered
+  characteristic of the production code —
+  `SequentialDissipativeQRC._inject_zz` never references
+  `self.input_scaling` at all (confirmed by direct code read), so `zz`
+  injection is completely insensitive to that hyperparameter. Not fixed
+  (no test coverage asserting the intended behavior, and changing
+  established physics this late without a clear signal it's unintentional
+  felt riskier than documenting it clearly) — logged as a real finding
+  for future deliberate resolution.
+- **Noise reconciliation**: resolved Sprint 2's contradictory noise
+  paragraph using this project's own real data — v4's encoding-noise
+  harm vs. v5's dissipation-as-resource are not in tension, just
+  architecture-dependent (backed by Sprint 4's real ablation showing v5
+  skill collapses to ~0% with dissipation off).
+
+Four figures written (`figures/sprint8_*.png`), full data in
+`results/characterization.json`. Full writeup:
+`docs/sprint_log/SPRINT_8_REPORT.md`.
+
 ## Next up
 
-- Commit Sprint 6 once tests are green.
-- Then: per the master plan sequencing (S6→S8→S9, S7 pending organizer
-  reply), Sprint 8 (Scaling, Shots & Noise Characterization) is next.
+- Commit Sprint 8.
+- Then: per the master plan sequencing, Sprint 9 (Paper, README,
+  Reproducibility Package) is the final sprint (S7 remains pending
+  organizer reply, not blocking).

@@ -1,0 +1,199 @@
+{
+  "reference_config": {
+    "gamma1": 0.03,
+    "gamma2": 0.1,
+    "input_scaling": 0.3,
+    "tau": 1.0,
+    "injection": "ry"
+  },
+  "n_values": [
+    4,
+    6,
+    8,
+    10,
+    12
+  ],
+  "scaling": [
+    {
+      "n_qubits": 4,
+      "mc": 0.852931315295819,
+      "ipc_total": 1.050275399601672,
+      "ipc_linear": 0.7580536316054285,
+      "ipc_nonlinear": 0.29222176799624355,
+      "skill_h1": -0.04294168854863756,
+      "skill_h6": -0.29180280314494333,
+      "mc_ipc_n_steps": 300,
+      "wall_clock_mc_ipc_s": 0.41036460000032093,
+      "wall_clock_drive_s": 0.3667931999952998
+    },
+    {
+      "n_qubits": 6,
+      "mc": 0.621793397442342,
+      "ipc_total": 0.7495931366096127,
+      "ipc_linear": 0.4537709130276996,
+      "ipc_nonlinear": 0.2958222235819131,
+      "skill_h1": -0.08116108727532056,
+      "skill_h6": -0.21390996577622778,
+      "mc_ipc_n_steps": 300,
+      "wall_clock_mc_ipc_s": 1.2540594000020064,
+      "wall_clock_drive_s": 1.1441940999939106
+    },
+    {
+      "n_qubits": 8,
+      "mc": 0.4620571820869407,
+      "ipc_total": 0.6730220606830655,
+      "ipc_linear": 0.3028505027430732,
+      "ipc_nonlinear": 0.37017155793999235,
+      "skill_h1": -0.002976469424366579,
+      "skill_h6": -0.6648731500293579,
+      "mc_ipc_n_steps": 300,
+      "wall_clock_mc_ipc_s": 7.425987399998121,
+      "wall_clock_drive_s": 6.666336299997056
+    },
+    {
+      "n_qubits": 10,
+      "mc": 0.4139817927853058,
+      "ipc_total": 0.7944433205852642,
+      "ipc_linear": 0.26805314364639243,
+      "ipc_nonlinear": 0.5263901769388718,
+      "skill_h1": 4.171892913584774e-05,
+      "skill_h6": 0.012582409377687731,
+      "mc_ipc_n_steps": 300,
+      "wall_clock_mc_ipc_s": 158.45201540000562,
+      "wall_clock_drive_s": 147.70985759999894
+    },
+    {
+      "n_qubits": 12,
+      "mc": 0.9325552732195503,
+      "ipc_total": 1.4368016932084517,
+      "ipc_linear": 0.615521355622161,
+      "ipc_nonlinear": 0.8212803375862907,
+      "skill_h1": 0.007349038885717696,
+      "skill_h6": 0.022129604220521126,
+      "mc_ipc_n_steps": 150,
+      "wall_clock_mc_ipc_s": 1778.481368199995,
+      "wall_clock_drive_s": 3253.5117475000006
+    }
+  ],
+  "shot_study": {
+    "n_qubits": 10,
+    "shot_budgets": [
+      1000,
+      10000,
+      100000,
+      null
+    ],
+    "results": [
+      {
+        "n_shots": 1000,
+        "skill_h6": 0.011301568118218697,
+        "degradation_vs_exact": 0.0012808412594690344
+      },
+      {
+        "n_shots": 10000,
+        "skill_h6": 0.013015411292302548,
+        "degradation_vs_exact": -0.00043300191461481674
+      },
+      {
+        "n_shots": 100000,
+        "skill_h6": 0.012508087944337887,
+        "degradation_vs_exact": 7.432143334984431e-05
+      },
+      {
+        "n_shots": null,
+        "skill_h6": 0.012582409377687731,
+        "degradation_vs_exact": 0.0
+      }
+    ],
+    "bootstrap_ci_halfwidth_h6": 0.045498712199574666,
+    "threshold_shots_exceeding_ci": null
+  },
+  "encoding_density": [
+    {
+      "injection": "ry",
+      "multiplexing_V": 1,
+      "input_scaling": 0.1,
+      "skill_h6": 0.0029033086871790292,
+      "wall_clock_s": 6.799177499997313
+    },
+    {
+      "injection": "ry",
+      "multiplexing_V": 1,
+      "input_scaling": 0.3,
+      "skill_h6": -0.6648731500293579,
+      "wall_clock_s": 6.8704829000053
+    },
+    {
+      "injection": "ry",
+      "multiplexing_V": 1,
+      "input_scaling": 1.0,
+      "skill_h6": -0.04587703859022896,
+      "wall_clock_s": 6.948211299997638
+    },
+    {
+      "injection": "ry",
+      "multiplexing_V": 3,
+      "input_scaling": 0.1,
+      "skill_h6": 0.02092458394098229,
+      "wall_clock_s": 10.587595400007558
+    },
+    {
+      "injection": "ry",
+      "multiplexing_V": 3,
+      "input_scaling": 0.3,
+      "skill_h6": -0.4815015079926186,
+      "wall_clock_s": 10.67438189999666
+    },
+    {
+      "injection": "ry",
+      "multiplexing_V": 3,
+      "input_scaling": 1.0,
+      "skill_h6": -0.04750636371918682,
+      "wall_clock_s": 10.669909000003827
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 1,
+      "input_scaling": 0.1,
+      "skill_h6": -0.012701877034738018,
+      "wall_clock_s": 6.940125599998282
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 1,
+      "input_scaling": 0.3,
+      "skill_h6": -0.012701877034738018,
+      "wall_clock_s": 6.84694540000055
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 1,
+      "input_scaling": 1.0,
+      "skill_h6": -0.012701877034738018,
+      "wall_clock_s": 7.05702680000104
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 3,
+      "input_scaling": 0.1,
+      "skill_h6": -0.013136278922396993,
+      "wall_clock_s": 10.695483699993929
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 3,
+      "input_scaling": 0.3,
+      "skill_h6": -0.013136278922396993,
+      "wall_clock_s": 10.826101999991806
+    },
+    {
+      "injection": "zz",
+      "multiplexing_V": 3,
+      "input_scaling": 1.0,
+      "skill_h6": -0.013136278922396993,
+      "wall_clock_s": 9.573267500003567
+    }
+  ],
+  "forecast_train": 200,
+  "forecast_test": 80
+}
