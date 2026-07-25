@@ -18,6 +18,12 @@ QRCx/data/isd/*.gz
 # Regeneratable GPU-handoff export (scripts/sprint4_export_pilot_seq.py)
 data/sprint4_pilot_seq.npz
 
+# LaTeX build artifacts (docs/paper/main.pdf is committed; these are not)
+docs/paper/*.aux
+docs/paper/*.log
+docs/paper/*.out
+docs/paper/compile_log.txt
+
 # Local cache/results scratch
 cache/
 *.cache

@@ -397,9 +397,39 @@ Four figures written (`figures/sprint8_*.png`), full data in
 `results/characterization.json`. Full writeup:
 `docs/sprint_log/SPRINT_8_REPORT.md`.
 
+## 2026-07-25 — Sprint 9 (Paper, README, Reproducibility Package) done
+
+Wrote and compiled the 5-page paper (`docs/paper/main.tex`/`main.pdf`,
+LaTeX via MiKTeX, 4 pages content + 1 page references, all six required
+sections, real architecture diagram). Independently audited every
+numeric claim in the paper against its source `results/*.json` file:
+**17/17 checks passed exactly** — nothing invented or approximated.
+
+Fixed a real staleness bug found during the README final pass:
+`scripts/make_readme_tables.py` (Sprint 0/1-era) would have silently
+clobbered the current curated, audited results block with a generic
+undifferentiated dump of every results file in the repo if run — not
+run, marked legacy, README corrected to describe the block as
+hand-curated + numbers-audited rather than mechanically regenerated.
+Updated the LLM-use disclosure to cover the whole project, not just
+Sprint 0.
+
+**One honest gap against the literal Sprint 9 DoD**: a full judge
+dry-run on a genuinely fresh qBraid Lab instance was not performed,
+given the real reliability cost qBraid's on-demand GPU instances already
+incurred in Sprints 4-5 (repeated auto-stops, one instance permanently
+stuck). `reproduce.sh --quick`'s real, verified, <12-minute CPU-only run
+is the closest thing to a dry-run actually done. Reported as an open
+item, not marked done.
+
+Zip package built from the clean git-tracked file list (excludes the
+local virtualenv, raw data downloads, and regeneratable caches, all
+already gitignored) plus the compiled paper PDF.
+
 ## Next up
 
-- Commit Sprint 8.
-- Then: per the master plan sequencing, Sprint 9 (Paper, README,
-  Reproducibility Package) is the final sprint (S7 remains pending
-  organizer reply, not blocking).
+Per the master plan sequencing, all sprints through S9 are now done
+(S7/Dirac-3 remains pending organizer reply, explicitly non-blocking).
+Master plan complete pending: (1) swapping in the official Aqora cover
+page template, (2) a real qBraid dry-run if time allows, (3) whatever
+comes back from the organizer on Dirac-3.
