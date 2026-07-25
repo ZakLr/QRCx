@@ -1,0 +1,16 @@
+{
+  "n_qubits": 12,
+  "sample_steps": 200,
+  "has_cupy": true,
+  "complex128": {
+    "s_per_step": 0.14905334734999998,
+    "projected_hours_canonical": 2.177172560292333
+  },
+  "complex64": {
+    "s_per_step": 0.07199160864500001,
+    "projected_hours_canonical": 1.0515574302746336
+  },
+  "complex64_vs_complex128_rel_err": 0.0586646821830407,
+  "decision": "complex128",
+  "decision_reason": "projected 2.18h <= 3.0h budget"
+}

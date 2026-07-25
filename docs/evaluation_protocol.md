@@ -22,6 +22,32 @@ Enforcement: `QRCx/data/split_guard.py::assert_test_unlocked()` raises
 `scripts/esn_diagnosis.py` both take `--split {val,test}` (default
 `val`) and call the guard before any `--split test` run.
 
+**FINAL-SPRINT reconciliation note (`QRCx_FINAL_24H_SUPERPROMPT.md`
+Phase 1)**: Sprint 6 deviated from this canonical split, extending to the
+full 2011-2024 record (train 2011-2020/val 2021-2022/test 2023-2024) for
+its own literal "full-dataset benchmark" spec, while Sprint 4's QRC
+results used a third, different pilot split (train 2019-2021/eval 2022)
+— leaving the project's headline table comparing classical baselines and
+QRC results computed on **different data**, an indefensible mismatch.
+The final sprint's Phase 1 re-establishes THIS document's original
+canonical split (train 2019-2022/val 2023/test 2024) as the one and only
+split used for every model (classical and QRC) in the final headline
+table (`results/full_benchmark.json`, Phase 5) — Sprint 6's full-record
+numbers are retained only as a supplementary robustness note, not in the
+headline. Canonical-split data export: `scripts/phase1_export_canonical_seq.py`
+→ `data/canonical_seq.npz` (train_seq 35,064 steps / val_seq 8,760 /
+test_seq 8,784, real KORD data, NaN-forward-filled as established in
+Sprint 4). H200 benchmark (`results/h200_benchmark.json`): complex128
+measured at 0.1491 s/step (12 qubits), projecting 2.18h for the full
+canonical drive — within the 3h budget, so **complex128** (not the
+faster but lower-precision complex64) was chosen. Precision cross-check
+flagged an honest, unresolved anomaly: complex64 vs. complex128 disagree
+by a 5.87% max relative error on this same config, far above the 1e-5
+threshold this project normally validates against (consistent with a
+previously-flagged, never-fully-root-caused complex64/GPU precision issue
+from Sprint 2.6) — moot for this decision since complex128 was chosen
+regardless, but logged here rather than silently ignored.
+
 **Every number in this document, by split:**
 
 | Result | Split | File |
