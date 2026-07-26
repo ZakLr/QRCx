@@ -93,8 +93,9 @@ Related work: Ahmed et al. 2025 (arXiv:2506.22335), Kornjača et al. 2024
 ## Install
 
 ```bash
-git clone https://github.com/ZakLr/QRCx QRCx
-cd QRCx/QRCx
+git clone https://github.com/ZakLr/QRCx QRCx_repo
+cd QRCx_repo/QRCx        # the installable package root (pyproject.toml lives here,
+                          # one level below the repo root -- not QRCx/QRCx)
 pip install -e .          # PennyLane backend
 pip install -e ".[cuda]"  # + CUDA-Q GPU kernel (optional)
 ```
@@ -118,15 +119,24 @@ minutes** (the TFIM state-vector simulation at 12 qubits dominates runtime;
 
 ## Reproduce the headline result
 
+Run from the repo root (the directory containing `scripts/`, `docs/`, `QRCx/`):
+
 ```bash
-./scripts/reproduce.sh --quick   # <30 min: canonical val split (2019-2022 train), classical fairness protocol, FAST_MODE
-./scripts/reproduce.sh --full    # the real Sprint 6 headline run: full KORD record 2011-2024,
-                                  # train 2011-2020 / val 2021-2022 / test 2023-2024, 3-seed ESN,
-                                  # horizons 1-48, DM test + bootstrap CI at every horizon.
-                                  # Real measured wall-clock: ~170 min for val alone (FAST_MODE) --
-                                  # NOT a quick operation, documented honestly, not padded down.
+./scripts/reproduce.sh --quick   # <30 min: canonical val split (train 2019-2022, val 2023),
+                                  # classical fairness protocol, FAST_MODE. Real measured
+                                  # wall-clock: ~7 min.
+./scripts/reproduce.sh --full    # supplementary full-record (2011-2024) classical robustness
+                                  # check -- NOT the paper's headline table anymore (see
+                                  # canonical split above). Real measured wall-clock: ~170 min
+                                  # for val alone -- NOT a quick operation.
                                   # Add --unlock-test to also run the one-time locked test-split pass.
 ```
+
+The QRC rows (v4/v5) on the canonical split require GPU access and are
+not part of either reproduce.sh path (real measured cost on an H200:
+~2-3h combined) -- see `scripts/phase1_v5_canonical_drive.py`,
+`scripts/phase5_v4_canonical_drive.py`, and
+`scripts/phase5_final_benchmark.py`.
 
 Both download/load ISD-Lite data via `QRCx/QRCx/data/loader.py` (frozen
 — do not modify), preprocess with climatological-anomaly residuals, and
