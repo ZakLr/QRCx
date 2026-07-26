@@ -61,7 +61,9 @@ def plot_demand_supply_heatmaps(result):
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = FIG_DIR / "sprint5_demand_supply_heatmaps.png"
     fig.savefig(out, dpi=300, bbox_inches="tight")
-    print(f"Wrote {out}")
+    out_pdf = FIG_DIR / "sprint5_demand_supply_heatmaps.pdf"
+    fig.savefig(out_pdf, bbox_inches="tight")
+    print(f"Wrote {out} and {out_pdf}")
 
 
 def plot_captured_capacity_bar(result):

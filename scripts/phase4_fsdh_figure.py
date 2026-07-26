@@ -49,6 +49,8 @@ def main():
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = FIG_DIR / "fsdh_curve.png"
     fig.savefig(out, dpi=300, bbox_inches="tight")
+    out_pdf = FIG_DIR / "fsdh_curve.pdf"
+    fig.savefig(out_pdf, bbox_inches="tight")
     print(f"Wrote {out} (null_ridge/residual_ridge included since sprint6_full_benchmark.py DOES "
           f"compute their per-horizon skill in `metrics`, even though it wasn't separately saved "
           f"in fsdh_curves)")

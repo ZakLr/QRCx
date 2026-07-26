@@ -71,6 +71,8 @@ def main():
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = FIG_DIR / "architecture_diagram.png"
     fig.savefig(out, dpi=300, bbox_inches="tight")
+    out_pdf = FIG_DIR / "architecture_diagram.pdf"
+    fig.savefig(out_pdf, bbox_inches="tight")
     print(f"Wrote {out}")
 
 

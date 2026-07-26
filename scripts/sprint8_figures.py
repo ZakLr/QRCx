@@ -63,7 +63,9 @@ def plot_shots(result):
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = FIG_DIR / "sprint8_shots.png"
     fig.savefig(out, dpi=300, bbox_inches="tight")
-    print(f"Wrote {out}")
+    out_pdf = FIG_DIR / "sprint8_shots.pdf"
+    fig.savefig(out_pdf, bbox_inches="tight")
+    print(f"Wrote {out} and {out_pdf}")
 
 
 def plot_encoding(result):
