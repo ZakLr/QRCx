@@ -299,3 +299,37 @@ Dirac-3 outcome, every scope cut with its reason.
   exactly 5 pages (references on a clean 6th page, "5 pages, references
   excluded" per spec) -- verified by compiling a bibliography-stripped
   copy at every trim step, not just eyeballing the final PDF.
+
+## Phase 7 — README, reproducibility dry-run, packaging
+
+- **Real judge-dry-run bug found and fixed**: extracted the submission
+  zip fresh (no reuse of the working directory) and inspected it as a
+  judge would. Found the README's `## Install` section instructed
+  `cd QRCx/QRCx` after cloning, but `pyproject.toml` lives one level
+  below the repo root (`QRCx/pyproject.toml`), not two -- a judge
+  following the README verbatim would have failed at the very first
+  `pip install -e .`. Fixed and re-verified against the actual file
+  layout.
+- **Real stray-file hygiene issue found and fixed**: the same fresh-zip
+  inspection surfaced four undocumented files (`3asba test3.txt`,
+  `3asba test4.txt`, `test1.txt`, `test2.txt`) tracked in git since the
+  pre-Sprint-0 baseline commit, never mentioned in the README's repo
+  map, and clearly not intentional (odd filenames, unexplained
+  content). Distinguished from `pipeline_demo.py`/`used_baselines.py`/
+  `Qbraid.py`, which ARE legitimate, documented standalone demo scripts
+  kept intentionally -- removed only the four unexplained ones.
+- **`./scripts/reproduce.sh --quick` verified end-to-end**, real
+  execution from a clean repo-root invocation, real measured wall-clock
+  ~7 minutes, matching the documented estimate. (The run's own fresh
+  numbers were reverted from git afterward since they're not cited
+  anywhere in the paper/README -- only `results/baselines_test.json`
+  and `results/full_matched_benchmark_test.json`, the locked one-time
+  runs, are.)
+- **Final numbers audit**: spot-checked every newly-added number in the
+  paper (circuit depth/gate counts, canonical units std, Dirac-3
+  K=32/64/128 RMSEs, Phase 2 concatenation table's A/B/C/C' skills and
+  DM p-values) directly against its source `results/*.json` file --
+  all matched exactly.
+- **Zip built** via `scripts/phase7_package.py` (`git ls-files`-based,
+  respects `.gitignore`): `QRCx_Challenge_Phase3.zip`, 194 files,
+  3.19 MB, write-up PDF (`QRCx_writeup.pdf`) at archive root.
