@@ -46,6 +46,7 @@ docs/paper/compile_log.txt
 # Local cache/results scratch
 cache/
 *.cache
+*.zip
 results/*.npz
 .claude/
 .env
