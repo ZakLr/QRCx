@@ -343,6 +343,28 @@ dataset or of val-only tuning.
   config wins at h=1/h=3. Reported honestly as a negative result for the
   named hypothesis, not spun. See `docs/sprint_log/SPRINT_5_REPORT.md`
   and `docs/ipc_matching.md`.
+- **FINAL SPRINT: does the quantum reservoir add information beyond the
+  raw window? Real answer: no, not on this configuration.** A
+  concatenated-readout experiment (raw window alone vs. +QRC features vs.
+  +dimension-matched-ESN-control features, Diebold-Mariano tested at every
+  horizon) found the QRC features never significantly improve on the raw
+  window alone, and a dimension-matched classical ESN control performs
+  just as poorly — the automatic interpretation rule returns
+  **"redundant"**. Diagnostic: the driven reservoir's 165-dimensional
+  feature bank has an effective rank (participation ratio) of only
+  **~1.5**, i.e. barely more than one real degree of freedom, which
+  plausibly explains the redundancy. See
+  `docs/sprint_log/FINAL_SPRINT.md`, `results/hybrid_readout.json`
+  (pilot-scale), and `results/full_matched_benchmark_val.json`
+  (canonical-scale confirmation).
+- **Dirac-3: genuine device attempt, real blocker, not "pending."** A
+  legitimate best-subset-selection formulation was submitted via
+  `qci-client`; it failed at client initialization
+  (`QCI_API_URL`/`QCI_TOKEN` not configured in this environment) — logged
+  verbatim in `docs/sprint_log/FINAL_SPRINT.md`. A local simulated-
+  annealing stand-in (`QRCx/QRCx/readout/dirac3_selector.py`, identical
+  solver interface) ran the full K∈{32,64,128} comparison against Lasso
+  and greedy forward selection; see `results/dirac3/comparison.json`.
 
 ---
 
