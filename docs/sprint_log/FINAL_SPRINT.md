@@ -188,3 +188,67 @@ Dirac-3 outcome, every scope cut with its reason.
   covers `build_problem`'s shape/symmetry, SA recovering known
   informative features on a toy problem, and `select_dirac3` failing
   gracefully (not crashing) without credentials.
+
+## Phase 5 — final matched benchmark on the canonical split
+
+- **v5 canonical features fetched**: both configs
+  (`results/phase1_v5_canonical/phase1_features_{tuned,diagnostic_off}.npy`,
+  52,608 timesteps x 234 features each) pulled from the H200 instance
+  after Phase 1's drive completed. Real measured cost:
+  `tuned` 939.3s total (including the pre-stop/resume elapsed),
+  `diagnostic_off` 4198.7s (0.0798 s/step) — both well inside the
+  benchmark's 2.18h/config projection.
+- **Real alignment gap found and fixed before it caused silently wrong
+  numbers**: `data/canonical_seq.npz` (as exported by Phase 1) saved
+  `X_train`/`y_train`/etc. (windowed samples, post-NaN-drop) but not
+  the window start indices (`train_valid_idx` etc.) needed to map each
+  windowed sample back to its position in `train_seq`/`val_seq`/
+  `test_seq` (the raw sequence v5 was driven over). Since
+  `sliding_windows()` drops any window touching a NaN gap (893/267/363
+  raw NaNs across train/val/test, real missing SLP/WD readings) before
+  the export script's separate forward-fill step, window index `i`
+  does **not** in general equal raw-sequence position `i`. Fixed by
+  re-running `scripts/phase1_export_canonical_seq.py` (fast, CPU-only,
+  no GPU re-drive needed) to additionally export
+  `train_valid_idx`/`val_valid_idx`/`test_valid_idx` from
+  `preprocess()`'s already-computed return values. v5's recurrent
+  feature for a given windowed sample is now correctly taken as the
+  reservoir state after processing the window's last input
+  (`split_offset + valid_idx[i] + W - 1` in the global concatenated
+  sequence), not a naive `feature[i]`.
+- **v4 canonical-split GPU drive launched** (`scripts/phase5_v4_canonical_drive.py`,
+  adapted from Sprint 4's verified batched-statevector engine, 20
+  qubits, on the same H200 instance sequentially after v5 finished):
+  driving all 32,854 canonical windows (22,143 train + 5,269 val +
+  5,442 test). Real measured cost-projection preflight on this run:
+  ~0.124 s/window -> ~1.14h projected, comfortably inside budget
+  (Sprint 4's 20q measurement was 0.125 s/window — consistent).
+  Checkpointed per-split, resumable.
+- **`scripts/phase5_final_benchmark.py`** combines classical baselines
+  (`results/baselines_{val,test}.json`, already run on this canonical
+  split by `scripts/generate_baselines.py`), v5 QRC, v4 QRC (once its
+  drive completes), and a canonical-scale re-run of Phase 2's
+  concatenation experiment (`concat_C_raw_plus_v5`/`_v4`), at h in
+  {1,6} (matching `generate_baselines.py`'s convention). Supports
+  `--split val` (development, default) and a gated `--split test`
+  (requires `split_guard.assert_test_unlocked`, run exactly once after
+  v4's drive completes and all model/hyperparameter selection is
+  frozen).
+- **Provisional val-split numbers (v5-only, v4 pending)**, real,
+  measured, `results/full_matched_benchmark_val.json`: at h=1, v5 QRC
+  skill=+10.55%, null-control Ridge skill=+16.79%, concat-C(raw+v5)
+  skill=+14.81%; at h=6, v5 QRC skill=+19.08%, null-control Ridge
+  skill=+28.10%, concat-C skill=+26.85% — consistent with the null
+  control beating the QRC and the pilot-scale Phase 2 "redundant"
+  finding, now confirmed directionally at full canonical scale (concat
+  never exceeds null-control Ridge alone). These null-control Ridge
+  numbers cross-check against `results/baselines_val.json`'s
+  independently-computed `null_ridge` row to within ~0.1pp (16.79% vs.
+  16.86% at h=1, 28.10% vs 28.05% at h=6 — the small gap is a
+  different alpha-tuning protocol, not a bug), confirming this
+  reimplementation is sound.
+- **Still to do**: fetch v4 features once its drive completes, re-run
+  `phase5_final_benchmark.py --split val` with v4 included, then the
+  one-time `--split test` confirmatory run, then update the paper's
+  Sec.~4.3 placeholder table and the README's headline table with the
+  final canonical-split numbers.

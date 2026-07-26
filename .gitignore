@@ -27,6 +27,12 @@ data/canonical_seq.npz
 results/phase2_features/v5_features_tuned.npy
 results/phase2_features/v5_features_diagnostic_off.npy
 
+# Regeneratable canonical-split GPU-driven feature arrays (large, 47MB each;
+# scripts/phase1_v5_canonical_drive.py / scripts/phase5_v4_canonical_drive.py) --
+# the summary JSONs (small) are kept, the raw feature arrays are not.
+results/phase1_v5_canonical/*.npy
+results/phase5_v4_features_*.npy
+
 # Stray local run logs
 phase2_drive_log.txt
 phase1_drive_log.txt

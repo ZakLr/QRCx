@@ -1,0 +1,23 @@
+{
+  "n_qubits": 12,
+  "dtype": "complex128",
+  "n_train": 35064,
+  "n_val": 8760,
+  "n_test": 8784,
+  "drives": [
+    {
+      "gamma1_name": "tuned",
+      "gamma1": 0.03,
+      "wall_clock_s": 939.2662701480001,
+      "s_per_step": 0.01785405775068431,
+      "features_path": "phase1_features_tuned.npy"
+    },
+    {
+      "gamma1_name": "diagnostic_off",
+      "gamma1": 0.0,
+      "wall_clock_s": 4198.736519132999,
+      "s_per_step": 0.07981174952731522,
+      "features_path": "phase1_features_diagnostic_off.npy"
+    }
+  ]
+}

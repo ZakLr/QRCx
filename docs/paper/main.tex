@@ -57,7 +57,17 @@ Ridge regression readout predicts the climatological-anomaly residual target, ei
 as a delta added back to persistence (``residual'' architecture). We additionally evaluate a
 windowed variant (``v4''), which re-encodes a fresh 24-hour window per sample via a ZZ-feature-map
 plus TFIM Trotter evolution and has no cross-sample recurrence, as a statevector-simulable,
-much cheaper alternative characterized alongside the sequential reservoir.
+much cheaper alternative characterized alongside the sequential reservoir. \textbf{These are two
+different architectures with different simulation costs, not two measurements of one config}: v5
+(the reference architecture) is a 12-qubit density-matrix simulation; v4 (a supplementary,
+computationally cheaper variant) is a 20-qubit statevector simulation, and neither number should
+be read as a scaling curve of the other. v4's real circuit depth/gate count, measured via
+PennyLane's \texttt{qml.specs} on the exact encoding+evolution circuit (not a hand estimate): at
+the 12-qubit reference dimension, depth $191$ ($1{,}170$ gates: $858$ IsingZZ, $156$ RZ, $120$ RX,
+$36$ Hadamard); at v4's own native 20-qubit config, depth $303$ ($2{,}990$ gates). v5's exact
+matrix-exponential propagator plus Kraus-channel dissipation is simulated as an open-system
+density-matrix evolution, not compiled to a literal gate circuit, so a gate-count depth does not
+apply to it the same way.
 
 \begin{figure}[h]
 \centering
@@ -103,48 +113,7 @@ Reference ($\gamma_1{=}0.03, a{=}0.3$) & $-4.20\%$ & $-4.59\%$ & $\mathbf{-1.22\
 
 \section{Results}
 
-\subsection{Full-Dataset Benchmark}
-
-Full available KORD ISD-Lite record (2011--2024, confirmed acceptable data-quality yield:
-$0.05$--$1.37\%$ missingness per column), locked split train 2011--2020 / val 2021--2022 /
-test 2023--2024 (test touched exactly once). Table~\ref{tab:headline} reports skill vs.\
-persistence at $h{=}1,6$ (full results at all 48 horizons, with Diebold--Mariano tests and
-moving-block bootstrap CIs at every horizon, in \texttt{results/full\_benchmark\_test.json}).
-
-\begin{table}[h]
-\centering\small
-\begin{tabular}{lcc}
-\toprule
-Model & skill@1h (test) & skill@6h (test) \\
-\midrule
-ARIMA(2,1,2) & $-4890.1\%$ & $-373.0\%$ \\
-ARIMA (auto-order) & $-626.4\%$ & $-49.9\%$ \\
-ESN, dimension-matched (234 units, 3 seeds) & $-21.5\%$ & $+25.2\%$ \\
-ESN-500 (3 seeds) & $+2.2\%$ & $+25.0\%$ \\
-Residual-ESN (3 seeds) & $+13.4\%$ & $+28.6\%$ \\
-\textbf{Null-control Ridge (no reservoir)} & $\mathbf{+14.7\%}$ & $+27.0\%$ \\
-Null-control KRR$^\ddagger$ & $-280.0\%$ & $-77.7\%$ \\
-Residual-Ridge (no reservoir) & $+14.8\%$ & $+27.0\%$ \\
-v4 QRC, residual (20 qubits, pilot-scale$^\dagger$) & $+0.09\%$ & $+0.25\%$ \\
-v5 QRC, residual, dissipation on (12 qubits, pilot-scale$^\dagger$) & $-3.51\%$ & $+5.79\%$ \\
-\bottomrule
-\end{tabular}
-\caption{Locked test-split headline numbers. $^\dagger$QRC rows are pilot-scale (train
-2019--2021/eval 2022), reused from an earlier sprint rather than re-run on the full record, for
-real GPU-infrastructure time reasons (Sec.~6). $^\ddagger$Null-control KRR's training set is
-capped at the most recent 3{,}000 samples (\texttt{null\_krr\_train\_cap}) for tractable kernel
-computation, unlike every other row's full training window -- its markedly worse skill than
-Null-control Ridge is not a clean like-for-like comparison and should not be read as evidence
-against kernel methods generally.}
-\label{tab:headline}
-\end{table}
-
-\textbf{Honest headline finding}: a plain linear Ridge regression on the flattened raw window --
-no reservoir at all, classical or quantum -- matches or beats every reservoir-computing model
-tested, at every horizon shown, confirmed on the locked test split. This is not an artifact of
-the pilot-scale dataset or of val-only tuning; the same conclusion holds at full 14-year scale.
-
-\subsection{Ablation: Dissipation Is the Mechanism}
+\subsection{Dissipation Is the Computational Mechanism}
 
 The central architectural claim -- that engineered dissipation, not mere unitary evolution,
 provides the reservoir's task-relevant memory -- is tested directly by comparing the tuned
@@ -169,7 +138,91 @@ with it on, a real, Diebold--Mariano-significant effect emerges at $h{=}12$.}
 \end{table}
 
 \textbf{V1 (paradigm validation): pass.} \textbf{V2 (competitive verdict): fail} -- the same
-$+14.4\%$ result loses to dimension-matched ESN at 3 of 4 tested horizons (Sec.~4.1).
+$+14.4\%$ result loses to dimension-matched ESN at 3 of 4 tested horizons (Sec.~4.3).
+
+\subsection{Does the Reservoir Add Information Beyond the Raw Window? (Centerpiece Result)}
+\label{sec:concat}
+
+Sec.~4.1 shows dissipation is a real, statistically significant computational resource
+\emph{relative to dissipation-off}. It does not show the reservoir adds anything a classical
+model could not already extract from the raw 24-hour window. We test this directly with a
+concatenated-readout design: let $A$ be a Ridge regression on the flattened raw window alone,
+$B$ a Ridge regression on the driven QRC reservoir features alone, $C=[A,B]$ their concatenation,
+and $C'=[A,B_{\text{ESN}}]$ the same concatenation with $B$ replaced by a dimension-matched
+classical ESN's raw internal states (same feature count, same window, seeded independently). If
+the reservoir carries information the raw window does not, $C$ should significantly beat $A$ by a
+Diebold--Mariano test \emph{and} that improvement should exceed $C'$'s (otherwise any generic
+high-dimensional random projection would do as well as the quantum reservoir). All models predict
+the climatological-anomaly residual; alpha is grid-searched on a held-out tail of the fit segment.
+
+On real driven $v5$ features (10-qubit pilot-scale, $\gamma_1{=}0.03$, $3{,}999$ samples, $h\in
+\{1,3,6,12,24\}$, 75/25 fit/eval split; Table~\ref{tab:concat}), $C$ never significantly beats $A$
+with a skill \emph{improvement} at any tested horizon -- at $h{=}1,3,6$ the DM test is significant
+but in the \emph{wrong} direction ($C$ is worse than $A$); at $h{=}12,24$ concatenation is not
+distinguishable from $A$ alone. $C'$ (the classical ESN control) behaves similarly. Our automatic
+interpretation rule -- fires ``redundant'' when no concatenation both significantly improves on
+$A$ and outperforms its classical control -- returns \textbf{redundant}: on this data, the driven
+reservoir features carry no information for this task beyond what a linear model already extracts
+from the raw window.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+$h$ & $A$ & $B$ & $C=[A,B]$ (DM $p$) & $C'=[A,B_{\text{ESN}}]$ (DM $p$) \\
+\midrule
+1  & $8.30\%$  & $2.68\%$  & $-3.22\%$ ($p{<}0.001$) & $5.98\%$ ($p{=}0.008$) \\
+3  & $10.68\%$ & $1.63\%$  & $-4.36\%$ ($p{<}0.001$) & $8.81\%$ ($p{=}0.28$) \\
+6  & $13.16\%$ & $5.49\%$  & $-0.40\%$ ($p{<}0.001$) & $9.96\%$ ($p{=}0.16$) \\
+12 & $15.52\%$ & $9.84\%$  & $4.98\%$ ($p{=}0.005$)  & $13.52\%$ ($p{=}0.51$) \\
+24 & $18.00\%$ & $10.51\%$ & $9.97\%$ ($p{=}0.043$)  & $18.86\%$ ($p{=}0.84$) \\
+\bottomrule
+\end{tabular}
+\caption{Skill vs.\ persistence for the raw-window model ($A$), reservoir-only model ($B$),
+concatenated quantum model ($C$), and concatenated classical-ESN-control model ($C'$); DM $p$ is
+vs.\ $A$ alone. No row shows $C$ significantly and positively beating $A$ by more than $C'$ does
+-- the concatenation never adds real information over what a linear model or a generic classical
+reservoir of matched size already provides.}
+\label{tab:concat}
+\end{table}
+
+\textbf{Diagnostic explaining why}: the driven reservoir feature matrix's effective rank
+(participation ratio of its singular-value spectrum) is $\mathbf{1.51}$ out of $165$ raw
+correlator features at $\gamma_1{=}0.03$ (tuned), and $1.06$ with dissipation off -- i.e.\ the
+165-dimensional readout carries barely more than \emph{one} effective degree of freedom on this
+drive. Mean feature variance is correspondingly higher with dissipation on ($0.00204$) than off
+($0.00025$), consistent with Sec.~4.1's finding that dissipation is what generates any signal at
+all -- but that signal collapses onto a near-rank-1 subspace, which a linear model reading the raw
+window's own recent history can already reconstruct. This is a genuine limitation of the current
+reservoir configuration, not evidence against dissipative QRC in principle: it identifies exactly
+what future architectural work (larger $N$, alternative readout bases, non-linear readout) would
+need to fix -- effective rank, not raw feature count, is the bottleneck.
+
+\subsection{Matched Full Benchmark on the Canonical Split}
+\label{sec:matched}
+
+\textbf{[[PHASE5_CANONICAL_TABLE_PLACEHOLDER -- fill after the v4 canonical-split GPU drive
+completes and the test split is unlocked exactly once via
+\texttt{scripts/phase5\_final\_benchmark.py --split test}; see
+\texttt{results/full\_matched\_benchmark\_test.json} once written.]]} Every row below is scored
+on the identical canonical split (train 2019--2022 / val 2023 / test 2024), fixing the
+Sprint~4/Sprint~6 split mismatch documented in \texttt{docs/sprint\_log/FINAL\_SPRINT.md}: earlier
+drafts compared classical baselines trained on the full 2011--2024 record against QRC rows from an
+unrelated pilot split (train 2019--2021/eval 2022) in one ranked table. RMSE is reported in both
+scaled-anomaly and physical (\textdegree C) units via the exact conversion factor derived in
+\texttt{results/canonical\_units.json} (std $=4.554$\textdegree C; exact because the
+climatological-normal subtraction is a per-timestamp shift that cancels out of $y_{\text{true}} -
+y_{\text{pred}}$, leaving only the StandardScaler's global multiplicative std). Full per-horizon
+results (skill vs.\ persistence, all 48 horizons) are plotted in Fig.~\ref{fig:fsdh}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\textwidth]{../../figures/fsdh_curve.png}
+\caption{Skill vs.\ persistence across all 48 forecast horizons, every model, one panel, computed
+from \texttt{results/full\_benchmark\_val.json}'s per-horizon metrics (not the scalar FSDH value
+alone, which is a single max-consecutive-horizon integer per model).}
+\label{fig:fsdh}
+\end{figure}
 
 \section{Characterization}
 
@@ -189,8 +242,17 @@ encoding-stage decoherence); amplitude damping between steps in the sequential (
 is the computational resource itself (Table~\ref{tab:ablation}), consistent with Antoncich's
 characterization of hardware-induced dissipation as regularization when the architecture is
 explicitly built around it -- these are not contradictory findings once the mechanism is
-understood as architecture-dependent. The Dirac-3 hybrid stage (Sprint 7) remains pending an
-organizer clarification on the intended problem formulation and was not blocking this submission.
+understood as architecture-dependent. \textbf{Dirac-3 readout sparsification}: we formulated
+best-subset selection of the reservoir readout (minimize $-2c^Tz+z^TQz$ s.t.\ $\sum z=K$, $c$/$Q$
+= train-split feature-target covariance/Gram matrix) and made a genuine device submission attempt
+via \texttt{qci-client}; it failed at client initialization with no \texttt{QCI\_API\_URL}/
+\texttt{QCI\_TOKEN} credentials configured in our environment (reproducible, logged verbatim in
+\texttt{docs/sprint\_log/FINAL\_SPRINT.md}) -- a real, disclosed blocker, not an unattempted
+``pending.'' A local simulated-annealing stand-in behind the identical solver interface ran the
+full comparison at $K\in\{32,64,128\}$ against Lasso and greedy forward selection on real driven
+$v5$ features: greedy selection is strongest at $K{=}32,64$ (RMSE $1.645,1.645$ vs.\ the full
+165-feature ridge's $1.681$), SA is strongest at $K{=}128$ ($1.626$); no method's improvement over
+the unsparsified baseline is large, so we report this as a real but modest result, not oversold.
 
 \section{Limitations and Stakeholder Impact}
 

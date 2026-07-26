@@ -57,6 +57,15 @@ def main():
     y_val = np.asarray(data["y_val"], dtype=np.float64)
     X_test = np.asarray(data["X_test"], dtype=np.float64)
     y_test = np.asarray(data["y_test"], dtype=np.float64)
+    # Window start index (into the corresponding *_seq, PRE-ffill positions
+    # are identical to post-ffill positions since ffill doesn't change
+    # sequence length) of each retained windowed sample -- needed to align
+    # v5's per-timestep recurrent reservoir features (driven over the
+    # ffilled train_seq+val_seq+test_seq) to each window's target. Without
+    # this, X_train[i]'s NaN-dropped position in the raw sequence is lost.
+    train_valid_idx = np.asarray(data["train_valid_idx"], dtype=np.int64)
+    val_valid_idx = np.asarray(data["val_valid_idx"], dtype=np.int64)
+    test_valid_idx = np.asarray(data["test_valid_idx"], dtype=np.int64)
 
     print(f"train_seq={train_seq.shape}  val_seq={val_seq.shape}  test_seq={test_seq.shape}  "
           f"target_col_idx={target_col_idx} ({feature_cols[target_col_idx]})")
@@ -71,6 +80,7 @@ def main():
         canonical_val_year=np.array([2023]), canonical_test_year=np.array([2024]),
         horizons=np.array([1, 3, 6, 12, 24, 48]),
         X_train=X_train, y_train=y_train, X_val=X_val, y_val=y_val, X_test=X_test, y_test=y_test,
+        train_valid_idx=train_valid_idx, val_valid_idx=val_valid_idx, test_valid_idx=test_valid_idx,
     )
     print(f"Wrote {OUT_PATH} ({OUT_PATH.stat().st_size / 1e6:.2f} MB)")
 
