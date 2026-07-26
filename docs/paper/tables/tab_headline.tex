@@ -1,0 +1,25 @@
+\begin{table*}[t]
+\centering\footnotesize
+\begin{tabular}{lccccccc}
+\toprule
+Model & RMSE\textdegree C@1h & skill@1h & RMSE\textdegree C@6h & skill@6h & VPT & FSDH & $p$ vs persist. \\
+\midrule
+Persistence & 0.90 & +0.00\% & 2.80 & +0.00\% & 1.00 & n/a & -- \\
+ARIMA(2,1,2) & 6.76 & -5551.96\% & 6.79 & -487.48\% & 0.00 & 0 & $<0.001$ \\
+ARIMA (auto-order) & 2.33 & -569.86\% & 3.48 & -54.76\% & 1.00 & 0 & $<0.001$ \\
+ESN, dim-matched (234) & 1.15 & -64.21\% & 2.71 & +6.12\% & 1.00 & 0 & $<0.001$ \\
+ESN-500 & 1.08 & -45.34\% & 2.71 & +6.05\% & 1.00 & 0 & $<0.001$ \\
+Residual-ESN & 0.87 & +7.02\% & 2.59 & +14.78\% & 1.00 & 48 & $<0.001$ \\
+Null-control Ridge & 0.85 & +10.47\% & 2.52 & +19.08\% & 1.00 & 48 & $<0.001$ \\
+Null-control KRR$^\dagger$ & 2.43 & -629.80\% & 4.36 & -142.12\% & 1.00 & n/a & $<0.001$ \\
+\textbf{Residual-Ridge} & 0.85 & \textbf{+10.51\%} & 2.52 & \textbf{+19.10\%} & 1.00 & 48 & $<0.001$ \\
+v4 QRC (20q, statevector) & 0.90 & -1.39\% & 2.81 & -0.81\% & 1.00 & 0 & $<0.001$ \\
+v5 QRC (12q, density matrix) & 0.87 & +6.53\% & 2.59 & +14.10\% & 1.00 & 48 & $<0.001$ \\
+Concat $C{=}$[raw,v5] & 0.86 & +9.06\% & 2.57 & +15.65\% & 1.00 & 48 & $<0.001$ \\
+Concat $C{=}$[raw,v4] & 0.86 & +8.57\% & 2.54 & +17.81\% & 1.00 & 48 & $<0.001$ \\
+GBM ceiling probe$^\ddagger$ & 1.11 & -51.22\% & 2.72 & +5.93\% & -- & n/a & -- \\
+\bottomrule
+\end{tabular}
+\caption{Canonical-split (train 2019--2022/val 2023/test 2024), locked test-2024 headline numbers, every row on identical data. RMSE in \textdegree C (exact conversion, std$=4.5538$\textdegree C, \texttt{results/canonical\_units.json}). $p$ is Diebold--Mariano vs.\ persistence; both concat rows also differ significantly from the null-control Ridge baseline (see text), but toward worse skill. FSDH: max consecutive horizon (of 48) beating persistence. $^\dagger$Null-control KRR's training set is capped at 3{,}000 samples, unlike every other row's full window. $^\ddagger$GBM is a predictability-ceiling probe, not an RC-comparison baseline; VPT/FSDH/DM not computed for it (see text).}
+\label{tab:headline}
+\end{table*}
