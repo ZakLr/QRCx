@@ -1,0 +1,12 @@
+{
+  "eval_split": "test",
+  "max_horizon": 48,
+  "n_samples": 5442,
+  "fsdh": {
+    "v5_qrc_residual_12q": 48,
+    "null_ridge_raw_window": 48,
+    "concat_C_raw_plus_v5": 48,
+    "v4_qrc_residual_20q": 0,
+    "concat_C_raw_plus_v4": 48
+  }
+}
