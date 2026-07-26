@@ -1,0 +1,70 @@
+{
+  "gpu_model": "NVIDIA H200",
+  "gpu_total_vram_mib": 143771,
+  "observed_peak_vram_mib": 32609,
+  "observed_peak_vram_source": "nvidia-smi, observed during v4 canonical drive test-split pass",
+  "benchmark_200step_probe": {
+    "n_qubits": 12,
+    "sample_steps": 200,
+    "complex128_s_per_step": 0.14905334734999998,
+    "complex64_s_per_step": 0.07199160864500001,
+    "complex64_vs_complex128_rel_err": 0.0586646821830407,
+    "precision_decision": "complex128",
+    "decision_reason": "projected 2.18h <= 3.0h budget"
+  },
+  "v5_canonical_drive": {
+    "architecture": "sequential dissipative (density matrix)",
+    "n_qubits": 12,
+    "dtype": "complex128",
+    "feature_dimension": 234,
+    "n_train": 35064,
+    "n_val": 8760,
+    "n_test": 8784,
+    "drives": [
+      {
+        "gamma1_name": "tuned",
+        "gamma1": 0.03,
+        "wall_clock_s": 939.2662701480001,
+        "s_per_step": 0.01785405775068431,
+        "features_path": "phase1_features_tuned.npy"
+      },
+      {
+        "gamma1_name": "diagnostic_off",
+        "gamma1": 0.0,
+        "wall_clock_s": 4198.736519132999,
+        "s_per_step": 0.07981174952731522,
+        "features_path": "phase1_features_diagnostic_off.npy"
+      }
+    ],
+    "total_wall_clock_s": 5138.002789280999
+  },
+  "v4_canonical_drive": {
+    "architecture": "windowed statevector",
+    "n_qubits": 20,
+    "dtype": "<class 'numpy.complex64'>",
+    "batch_size": 256,
+    "feature_dimension": 630,
+    "n_train": 22143,
+    "n_val": 5269,
+    "n_test": 5442,
+    "cost_projection": {
+      "s_per_window": 0.12939474664000045,
+      "projected_hours": 1.1808708350307153
+    },
+    "drives": {
+      "train": {
+        "wall_clock_s": 2745.5891900429997,
+        "s_per_window": 0.12399355055968024
+      },
+      "val": {
+        "wall_clock_s": 651.8441090630004,
+        "s_per_window": 0.12371305922622895
+      },
+      "test": {
+        "wall_clock_s": 673.3784886840003,
+        "s_per_window": 0.12373731875854471
+      }
+    },
+    "total_wall_clock_s": 4070.8117877900004
+  }
+}

@@ -47,6 +47,11 @@ docs/paper/compile_log.txt
 cache/
 *.cache
 *.zip
+
+# Extracted zip-inspection copy (a duplicate of this entire repo, produced
+# by unzipping QRCx_Challenge_Phase3.zip for judge-dry-run inspection) --
+# never a source directory, must never be tracked.
+QRCx_Challenge_Phase3/
 results/*.npz
 .claude/
 .env

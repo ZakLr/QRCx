@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
-"""FINAL SPRINT Phase 5: the final matched benchmark on the CANONICAL
+"""FINAL SPRINT Phase 5 (v2): the final matched benchmark on the CANONICAL
 split (train 2019-2022 / val 2023 / test 2024) -- every model scored on
-IDENTICAL rows. Combines:
-  - classical baselines (results/baselines_{split}.json, already run by
-    scripts/generate_baselines.py on this same canonical split)
+IDENTICAL rows, in ONE consolidated output file. Combines:
+  - classical baselines + GBM ceiling probe (results/baselines_{split}.json,
+    already run by scripts/generate_baselines.py on this same canonical split)
   - v5 QRC (12 qubits, density matrix, sequential/recurrent): residual
-    ridge on the driven reservoir features from
-    results/phase1_v5_canonical/, aligned to each windowed sample via
-    canonical_seq.npz's *_valid_idx (window start position) + a
-    split offset (v5 was driven on train_seq+val_seq+test_seq
-    concatenated, in that order)
+    ridge on the driven reservoir features from results/phase1_v5_canonical/,
+    aligned to each windowed sample via canonical_seq.npz's *_valid_idx
+    (window start position) + a split offset (v5 was driven on
+    train_seq+val_seq+test_seq concatenated, in that order)
   - v4 QRC (20 qubits, statevector, windowed/non-recurrent): residual
     ridge on results/phase5_v4_features_{split}.npy (1:1 aligned to
     X_train/X_val/X_test, no windowing indirection needed)
   - Phase 2's concatenated-readout models C=[A,B] and C'=[A,B_esn],
-    re-run here on the full canonical-split features (the pilot-scale
-    version in results/hybrid_readout.json was the dry run; this is
-    the real headline number)
+    re-run here on the full canonical-split features
 
-Reports RMSE (scaled AND degC via results/canonical_units.json),
-skill, DM p-value vs persistence, bootstrap CI, at h in EVAL_HORIZONS
-(matching scripts/generate_baselines.py's convention: h=1,6).
+Every QRC/concat row reports: RMSE (scaled AND degC), MAE (degC), skill,
+VPT, DM p vs persistence, DM p vs the strongest classical baseline
+(null-control Ridge -- tied with Residual-Ridge as the strongest
+classical model on this data, and already computed in this same script),
+bootstrap CI vs persistence.
 """
 import argparse
 import json
@@ -44,6 +43,14 @@ V5_DIR = REPO_ROOT / "results" / "phase1_v5_canonical"
 V4_DIR = REPO_ROOT
 UNITS_PATH = REPO_ROOT / "results" / "canonical_units.json"
 
+# Classical rows pulled in verbatim from results/baselines_{split}.json --
+# generated separately by scripts/generate_baselines.py on the identical
+# canonical split, so no need to recompute here.
+CLASSICAL_ROWS = [
+    "persistence", "arima", "arima_auto", "esn_dim_matched", "esn_500",
+    "residual_esn", "null_ridge", "null_krr", "residual_ridge",
+]
+
 
 def fit_eval_ridge(F_train, y_train_res, F_val, y_val_res):
     """Grid-search alpha via a held-out 20% tail of train, then refit on
@@ -61,7 +68,7 @@ def fit_eval_ridge(F_train, y_train_res, F_val, y_val_res):
     return final.predict(F_val), best_alpha
 
 
-def evaluate(name, y_true, y_pred, y_persist, h):
+def evaluate(name, y_true, y_pred, y_persist, h, y_strongest_classical=None):
     row = {
         "rmse": rmse(y_true, y_pred), "mae": mae(y_true, y_pred),
         "skill": skill_score(y_true, y_pred, y_persist), "vpt": vpt(y_true, y_pred),
@@ -70,6 +77,10 @@ def evaluate(name, y_true, y_pred, y_persist, h):
         row["dm_vs_persistence"] = diebold_mariano(y_true, y_pred, y_persist, h=h)
         ci = skill_difference_ci(y_true, y_pred, y_persist, y_persist, n_boot=1000, seed=42)
         row["skill_diff_ci_vs_persistence"] = {k: v for k, v in ci.items() if k != "replicates"}
+    if y_strongest_classical is not None:
+        row["dm_vs_strongest_classical"] = diebold_mariano(y_true, y_pred, y_strongest_classical, h=h)
+        ci2 = skill_difference_ci(y_true, y_pred, y_strongest_classical, y_persist, n_boot=1000, seed=42)
+        row["skill_diff_ci_vs_strongest_classical"] = {k: v for k, v in ci2.items() if k != "replicates"}
     return row
 
 
@@ -135,9 +146,37 @@ def main():
     A_train_z = (A_train - a_mean) / a_std
     A_eval_z = (A_eval - a_mean) / a_std
 
+    # --- Classical baselines + GBM ceiling probe, pulled in verbatim ---
+    baselines_path = REPO_ROOT / "results" / f"baselines_{eval_split}.json"
+    baselines = json.load(open(baselines_path))
+    assert baselines["eval_split"] == eval_split
+
     results = {"eval_split": eval_split, "eval_horizons": EVAL_HORIZONS,
                "n_train": len(X_train), f"n_{eval_split}": len(X_eval),
                "std_scaled_to_anomaly_degC": std_degc, "models": {}}
+
+    # Copy classical rows (already have rmse/mae/skill/vpt/dm_vs_persistence/CI at h=1,6)
+    for name in CLASSICAL_ROWS:
+        rows = {}
+        for h in EVAL_HORIZONS:
+            m = dict(baselines["metrics"][name][str(h)])
+            m["rmse_degC"] = m["rmse"] * std_degc
+            m["mae_degC"] = m["mae"] * std_degc
+            rows[str(h)] = m
+        results["models"][name] = rows
+
+    # GBM ceiling probe: only rmse/mae/nrmse/skill available (no VPT/DM --
+    # it's a predictability-ceiling probe, not an RC-comparison baseline,
+    # per generate_baselines.py's own documented convention)
+    gbm = baselines["ceiling_probes"]["gbm"]["metrics"]
+    gbm_rows = {}
+    for h in EVAL_HORIZONS:
+        if str(h) in gbm:
+            m = dict(gbm[str(h)])
+            m["rmse_degC"] = m["rmse"] * std_degc
+            m["mae_degC"] = m["mae"] * std_degc
+            gbm_rows[str(h)] = m
+    results["models"]["gbm_ceiling_probe"] = gbm_rows
 
     for h in EVAL_HORIZONS:
         h_idx = horizons_available.index(h)
@@ -146,7 +185,15 @@ def main():
         y_train_res = y_train - y_train_persist
         y_eval_res = y_eval - y_eval_persist
 
-        def add_row(model_name, F_train, F_eval, standardize=False):
+        # Strongest classical baseline's prediction, for DM comparison --
+        # null-control Ridge, computed here (not reused from
+        # generate_baselines.py, whose null_control_forecast has a
+        # slightly different alpha-tuning protocol) so the DM test
+        # compares against a prediction array actually held in memory.
+        pred_null_res, null_alpha = fit_eval_ridge(A_train_z, y_train_res, A_eval_z, y_eval_res)
+        pred_null = pred_null_res + y_eval_persist
+
+        def add_row(model_name, F_train, F_eval, standardize=False, vs_classical=None):
             if standardize:
                 m, s = F_train.mean(axis=0), F_train.std(axis=0) + 1e-12
                 F_train_use, F_eval_use = (F_train - m) / s, (F_eval - m) / s
@@ -154,29 +201,31 @@ def main():
                 F_train_use, F_eval_use = F_train, F_eval
             pred_res, alpha = fit_eval_ridge(F_train_use, y_train_res, F_eval_use, y_eval_res)
             pred = pred_res + y_eval_persist
-            row = evaluate(model_name, y_eval, pred, y_eval_persist, h)
+            row = evaluate(model_name, y_eval, pred, y_eval_persist, h, y_strongest_classical=vs_classical)
             row["rmse_degC"] = row["rmse"] * std_degc
             row["mae_degC"] = row["mae"] * std_degc
             row["best_alpha"] = alpha
             results["models"].setdefault(model_name, {})[str(h)] = row
+            dmc = row.get("dm_vs_strongest_classical", {}).get("p_value")
             print(f"  h={h} {model_name}: skill={row['skill']*100:+.2f}%  "
-                  f"rmse_degC={row['rmse_degC']:.3f}  p={row['dm_vs_persistence']['p_value']:.4f}")
+                  f"rmse_degC={row['rmse_degC']:.3f}  p_persist={row['dm_vs_persistence']['p_value']:.4f}"
+                  + (f"  p_classical={dmc:.4f}" if dmc is not None else ""))
 
         print(f"\n=== h={h} ===")
-        add_row("v5_qrc_residual_12q", F5_train, F5_eval, standardize=True)
+        add_row("v5_qrc_residual_12q", F5_train, F5_eval, standardize=True, vs_classical=pred_null)
         if have_v4:
-            add_row("v4_qrc_residual_20q", F4_train, F4_eval, standardize=True)
+            add_row("v4_qrc_residual_20q", F4_train, F4_eval, standardize=True, vs_classical=pred_null)
         add_row("null_ridge_raw_window", A_train_z, A_eval_z, standardize=False)
 
         # Concatenation experiment: C = [A, B(v5)]
         C_train = np.concatenate([A_train_z, (F5_train - F5_train.mean(0)) / (F5_train.std(0) + 1e-12)], axis=1)
         C_eval = np.concatenate([A_eval_z, (F5_eval - F5_train.mean(0)) / (F5_train.std(0) + 1e-12)], axis=1)
-        add_row("concat_C_raw_plus_v5", C_train, C_eval, standardize=False)
+        add_row("concat_C_raw_plus_v5", C_train, C_eval, standardize=False, vs_classical=pred_null)
 
         if have_v4:
             C4_train = np.concatenate([A_train_z, (F4_train - F4_train.mean(0)) / (F4_train.std(0) + 1e-12)], axis=1)
             C4_eval = np.concatenate([A_eval_z, (F4_eval - F4_train.mean(0)) / (F4_train.std(0) + 1e-12)], axis=1)
-            add_row("concat_C_raw_plus_v4", C4_train, C4_eval, standardize=False)
+            add_row("concat_C_raw_plus_v4", C4_train, C4_eval, standardize=False, vs_classical=pred_null)
 
     out_path = REPO_ROOT / "results" / f"full_matched_benchmark_{eval_split}.json"
     with open(out_path, "w") as f:
@@ -185,7 +234,6 @@ def main():
 
     if not have_v4:
         print(f"\nRe-run this script once results/phase5_v4_features_{{train,{eval_split}}}.npy exist "
-              "(fetch from qBraid: scp qbraid-bma-7f806292:/home/jovyan/phase5_v4_features_*.npy results/) "
               "to add the v4 rows and the v4 concatenation row.")
 
 
