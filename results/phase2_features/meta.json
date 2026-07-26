@@ -1,0 +1,6 @@
+{
+  "n_qubits": 10,
+  "n_train": 3000,
+  "n_test": 1000,
+  "target_col_idx": 0
+}

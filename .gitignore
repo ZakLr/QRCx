@@ -18,6 +18,19 @@ QRCx/data/isd/*.gz
 # Regeneratable GPU-handoff export (scripts/sprint4_export_pilot_seq.py)
 data/sprint4_pilot_seq.npz
 
+# Regeneratable canonical-split export (scripts/phase1_export_canonical_seq.py)
+data/canonical_seq.npz
+
+# Regeneratable driven feature arrays (scripts/phase2_drive_pilot_features.py) --
+# large (2.6MB each), regenerated in ~45min by the script; target_series.npy and
+# meta.json are small and kept for reproducibility reference.
+results/phase2_features/v5_features_tuned.npy
+results/phase2_features/v5_features_diagnostic_off.npy
+
+# Stray local run logs
+phase2_drive_log.txt
+phase1_drive_log.txt
+
 # LaTeX build artifacts (docs/paper/main.pdf is committed; these are not)
 docs/paper/*.aux
 docs/paper/*.log

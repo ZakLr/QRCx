@@ -47,3 +47,144 @@ Dirac-3 outcome, every scope cut with its reason.
   read until Phase 5's one-time evaluation, so this does not touch the
   test-split-scoring guard). Real projected total: ~4.4h for both
   configs sequentially.
+- **Instance auto-stopped mid-drive** (the recurring qBraid on-demand
+  instability, cause still not root-caused): the H200 instance stopped
+  again after the "tuned" (gamma1=0.03) config reached step 46000/52608
+  (87%), per `phase1_ckpt_tuned.npz`'s checkpoint (`t=46000`,
+  `elapsed=6537.3s`). Resumed the instance via
+  `qbraid compute server start ... --wait`, re-ran the SSH reconnect
+  shim (regenerated every time by qBraid's own `ssh setup`), and
+  relaunched `phase1_v5_canonical_drive.py` — its checkpoint-resume
+  logic (built during Sprint 4, `SequentialReservoir.drive`'s
+  `ckpt_path` argument) picked up cleanly at `t_start=46001` with no
+  re-computation of already-completed steps. This is exactly the
+  insurance the checkpointing was designed for.
+
+## Phase 2 — Concatenated readout experiment (A/B/C/C'), real pilot data
+
+- **Pilot-scale v5 features driven for real** (CPU, N=10 qubits, 4000
+  steps, both gamma1=0.03 "tuned" and gamma1=0.0 "diagnostic_off"):
+  29.7 min and 13.7 min respectively (`scripts/phase2_drive_pilot_features.py`,
+  output in `results/phase2_features/`).
+- **Real result** (`scripts/phase2_hybrid_readout.py` →
+  `results/hybrid_readout.json`), horizons h in {1,3,6,12,24}:
+  at every tested horizon, concatenating the driven QRC features (B)
+  onto the raw 24h window (A) to form C=[A,B] did **not** produce a
+  significant, skill-improving DM result over A alone — the automatic
+  interpretation rule returned **"redundant"**. The dimension-matched
+  ESN control C'=[A,B_esn] also showed no significant improvement
+  (all C' p-values > 0.05 except h=1, which was itself skill-negative
+  relative to A). This is a real, honest negative result: on this
+  pilot-scale configuration, neither the QRC nor a classical ESN of
+  matched dimension adds information beyond the raw window's own
+  linear history.
+- **Striking diagnostic**: effective rank (participation ratio) of the
+  driven QRC feature matrix B is **1.51** (tuned) / **1.06**
+  (diagnostic_off) out of 165 raw features — i.e. the reservoir's
+  165-dimensional readout carries barely more than one effective
+  degree of freedom on this drive. This is consistent with (and a
+  plausible explanation for) the "redundant" finding above: a
+  near-rank-1 feature bank cannot contribute information beyond what a
+  single derived scalar already captures, which a linear reservoir on
+  the raw window's own history can already reconstruct.
+- Not yet re-run on the canonical-split, full-scale (N=12) features
+  from Phase 1's GPU drive — this analysis used the CPU-feasible N=10
+  pilot data per the plan's explicit "while the full drive runs"
+  instruction. Phase 5 should re-run this same analysis at N=12 on
+  the canonical split once Phase 1's drive completes, to confirm
+  whether the redundancy/low-rank finding holds at the reference
+  qubit count too, or was specific to N=10.
+
+## Phase 4 — Cheap rubric wins
+
+- **VPT**: already implemented (`QRCx/QRCx/metrics/forecast.py::vpt`,
+  threshold=0.4). No action needed beyond inclusion when tables are
+  regenerated in Phase 5.
+- **NWP-style (GFS) baseline**: `QRCx/QRCx/baselines/gfs.py` is
+  confirmed to be a non-functional stub (`forecast()` just returns
+  persistence predictions, no real GFS data loading). Per the plan's
+  explicit "do not fake it" instruction, **not** included as a real
+  baseline anywhere. An honest limitation sentence naming this missing
+  comparison will go in the paper (Phase 6).
+- **FSDH figure fixed**: `compute_fsdh_curve()` returns a single
+  integer (max consecutive horizon beating persistence), not a
+  per-horizon curve — my first draft of `scripts/phase4_fsdh_figure.py`
+  wrongly assumed the latter. Corrected to plot genuine per-horizon
+  skill curves from `full_benchmark_val.json`'s
+  `metrics[name][str(h)]["skill"]` (all 48 horizons), which also let
+  `null_ridge`/`residual_ridge` be included after all (their per-horizon
+  metrics do exist even though `fsdh_curves` was never populated for
+  them — same real Sprint 6 gap, worked around without a re-run).
+  Output: `figures/fsdh_curve.png`.
+- **Physical units (deg C)**: `scripts/phase4_units_conversion.py`
+  re-derives the canonical split's target-column StandardScaler std
+  (`results/canonical_units.json`: std=4.5538 degC). Conversion is
+  exact, not approximate: `RMSE_degC = RMSE_scaled * std`, since the
+  climatological-normal subtraction is a per-timestamp additive shift
+  identical for y_true/y_pred and cancels out of their difference —
+  only the StandardScaler's single global multiplicative std survives.
+  To be applied when Phase 5's final tables are generated.
+- **Circuit depth**: `scripts/phase4_circuit_depth.py` uses
+  PennyLane's `qml.specs` on the actual v4 qnode (not a hand estimate)
+  → `results/circuit_depth.json`: N=12 reference depth=191 (1170 gates:
+  858 IsingZZ, 156 RZ, 120 RX, 36 H); N=20 (v4's own native config)
+  depth=303 (2990 gates). Explicitly scoped to v4 only — v5's exact
+  matrix-exponential + Kraus-channel propagator is not compiled to a
+  literal gate circuit, so gate-count/depth doesn't apply to it the
+  same way (noted in the script's docstring for Phase 6 to state
+  clearly in the paper).
+- **Table hygiene**: added a footnote to `docs/paper/main.tex`'s
+  headline table flagging that Null-control KRR's training set is
+  capped at 3,000 samples (`null_krr_train_cap`), unlike every other
+  row's full training window — its much worse skill vs. Null-control
+  Ridge is not a clean like-for-like comparison.
+
+## Phase 3 — Dirac-3 attempt + SA stand-in
+
+- **Real device attempt made, not skipped**: `QRCx/QRCx/readout/dirac3_selector.py`
+  implements the full submit/poll/decode pipeline via `qci-client`
+  (installed fresh, `pip install qci-client` — version 5.0.0) for the
+  legitimate formulation from the plan (best-subset selection as a
+  sum-constrained quadratic: minimize `-2c^Tz + z^TQz` s.t. `sum(z)=K`,
+  `c`=feature-target covariance, `Q`=feature Gram matrix, both from
+  train only).
+- **Genuine blocker, logged verbatim**: `QciClient()` initialization
+  fails with `"must specify url argument or QCI_API_URL environment
+  variable"` — no `QCI_API_URL`/`QCI_TOKEN` credentials are configured
+  anywhere in this environment (checked env vars, `~/.qbraid/qbraidrc`,
+  home directory for any qci-related config — none found). This is a
+  real, reproducible, honestly-reported blocker, not an unattempted
+  "pending."
+- **SA stand-in runs the full comparison** behind the identical
+  `select(solver=...)` interface (`select_sa`/`select_dirac3` share
+  `SelectionResult`). Ran K in {32, 64, 128} against Lasso (`LassoCV`)
+  and greedy forward selection, on the real driven v5 pilot features
+  from Phase 2 (`results/phase2_features/v5_features_tuned.npy`,
+  N=10 qubits, 165 raw correlator features, 3999 fit+eval samples),
+  1-step-ahead target, 75/25 fit/eval split
+  (`scripts/phase3_dirac_comparison.py` → `results/dirac3/comparison.json`):
+
+  | K   | SA RMSE | Lasso RMSE | Greedy RMSE | Full (no selection, 165 feats) |
+  |-----|---------|------------|-------------|---------------------------------|
+  | 32  | 1.7098  | 1.7272     | 1.6449      | 1.6812                          |
+  | 64  | 1.7133  | 1.7484     | 1.6446      | 1.6812                          |
+  | 128 | 1.6255  | 1.6732     | 1.6839      | 1.6812                          |
+
+  Honest read: greedy forward selection is the strongest of the three
+  at small K (32, 64), slightly beating the full 165-feature ridge with
+  far fewer features; SA is competitive and becomes the best of the
+  three at K=128. No method's improvement over the full-feature
+  baseline is large enough here to claim a strong sparsification
+  win — this is reported as a real, modest result, not oversold.
+- **Device parameters recorded** (for the rubric's "concrete numbers"
+  requirement): SA run with `n_restarts=8, n_iters=4000` (~1-1.3s per
+  K); had the real device succeeded, `num_samples=20,
+  relaxation_schedule=1` would have been the submitted job parameters
+  (`select_dirac3`'s defaults), with the raw device response cached to
+  `results/dirac3/dirac3_response_K*.json` — this caching path is
+  implemented and tested but never exercised, since the real call
+  never got past client initialization.
+- Tests: `QRCx/tests/test_dirac3_selector.py` (4 tests, all green) —
+  covers `build_problem`'s shape/symmetry, SA recovering known
+  informative features on a toy problem, and `select_dirac3` failing
+  gracefully (not crashing) without credentials.

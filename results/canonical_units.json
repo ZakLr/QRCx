@@ -1,0 +1,7 @@
+{
+  "target_col": "T_db",
+  "target_col_idx": 0,
+  "std_scaled_to_anomaly": 4.553826208109419,
+  "mean_anomaly_to_scaled": -7.782771707795038e-17,
+  "note": "RMSE_degC = RMSE_scaled * std_scaled_to_anomaly (exact, since the climatological-normal subtraction cancels out of (y_true - y_pred) and only the StandardScaler's global multiplicative std remains)."
+}

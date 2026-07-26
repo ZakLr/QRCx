@@ -1,0 +1,28 @@
+{
+  "n12_reference": {
+    "n_qubits": 12,
+    "n_layers": 3,
+    "trotter_steps": 10,
+    "depth": 191,
+    "total_gates": 1170,
+    "gate_types": {
+      "Hadamard": 36,
+      "RZ": 156,
+      "IsingZZ": 858,
+      "RX": 120
+    }
+  },
+  "n20_v4_native": {
+    "n_qubits": 20,
+    "n_layers": 3,
+    "trotter_steps": 10,
+    "depth": 303,
+    "total_gates": 2990,
+    "gate_types": {
+      "Hadamard": 60,
+      "RZ": 260,
+      "IsingZZ": 2470,
+      "RX": 200
+    }
+  }
+}

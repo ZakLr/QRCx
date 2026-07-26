@@ -1,0 +1,80 @@
+{
+  "dirac3_attempt": {
+    "attempted": true,
+    "solver": "dirac3",
+    "error": "QciClient() init failed (no QCI_API_URL/QCI_TOKEN credentials configured in this environment): must specify url argument or QCI_API_URL environment variable",
+    "wall_clock_s": 0.3151731999969343,
+    "succeeded": false
+  },
+  "by_K": {
+    "32": {
+      "sa": {
+        "rmse": 1.7098125949649263,
+        "energy": -0.1158666032635365,
+        "wall_clock_s": 1.2722981999977492,
+        "device_params": {
+          "n_restarts": 8,
+          "n_iters": 4000,
+          "seed": 42
+        }
+      },
+      "lasso": {
+        "rmse": 1.7271957908019517,
+        "wall_clock_s": 10.213650899997447
+      },
+      "greedy": {
+        "rmse": 1.6448523369796704,
+        "wall_clock_s": 0.3467681000038283
+      },
+      "full_no_selection": {
+        "rmse": 1.6812115027479753
+      }
+    },
+    "64": {
+      "sa": {
+        "rmse": 1.713298478443374,
+        "energy": -0.11901273077615604,
+        "wall_clock_s": 1.2337911000067834,
+        "device_params": {
+          "n_restarts": 8,
+          "n_iters": 4000,
+          "seed": 42
+        }
+      },
+      "lasso": {
+        "rmse": 1.74841670714137,
+        "wall_clock_s": 9.875557299994398
+      },
+      "greedy": {
+        "rmse": 1.6445794106413798,
+        "wall_clock_s": 0.7084992000018246
+      },
+      "full_no_selection": {
+        "rmse": 1.6812115027479753
+      }
+    },
+    "128": {
+      "sa": {
+        "rmse": 1.6255081779783118,
+        "energy": 2.1182133690181684,
+        "wall_clock_s": 0.9973454999999376,
+        "device_params": {
+          "n_restarts": 8,
+          "n_iters": 4000,
+          "seed": 42
+        }
+      },
+      "lasso": {
+        "rmse": 1.6731818416224953,
+        "wall_clock_s": 10.184679400001187
+      },
+      "greedy": {
+        "rmse": 1.6838511023259717,
+        "wall_clock_s": 1.7205072999931872
+      },
+      "full_no_selection": {
+        "rmse": 1.6812115027479753
+      }
+    }
+  }
+}

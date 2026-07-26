@@ -1,0 +1,306 @@
+{
+  "horizons": [
+    1,
+    3,
+    6,
+    12,
+    24
+  ],
+  "n_fit": 2964,
+  "n_eval": 988,
+  "per_horizon": {
+    "1": {
+      "A": {
+        "skill": 0.08303884829139241,
+        "rmse": 0.17794927739182928,
+        "alpha": 100.0
+      },
+      "B": {
+        "skill": 0.026833396024376066,
+        "rmse": 0.18885674015375756,
+        "alpha": 1.0
+      },
+      "C": {
+        "skill": -0.03224764286599391,
+        "rmse": 0.20032225116096855,
+        "alpha": 100.0
+      },
+      "Cprime": {
+        "skill": 0.059812675729170595,
+        "rmse": 0.1824566445974344,
+        "alpha": 100.0
+      },
+      "dm_C_vs_A": {
+        "dm_stat": 9.06903858171051,
+        "p_value": 0.0,
+        "mean_loss_diff": 0.008463058985923956,
+        "n": 987,
+        "maxlags": 0
+      },
+      "dm_Cprime_vs_A": {
+        "dm_stat": 2.633697766913681,
+        "p_value": 0.008446063239109014,
+        "mean_loss_diff": 0.0016244818334802881,
+        "n": 987,
+        "maxlags": 0
+      },
+      "skill_diff_ci_C_vs_A": {
+        "lower": -0.3617313130949612,
+        "upper": -0.1298953954117914,
+        "boot_mean": -0.22683259060058863,
+        "boot_std": 0.05843599004332877,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.22471744245962444
+      },
+      "skill_diff_ci_Cprime_vs_A": {
+        "lower": -0.10063300811972417,
+        "upper": 0.010880508173467147,
+        "boot_mean": -0.04186705127067654,
+        "boot_std": 0.02789801302080881,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.04313445097676549
+      }
+    },
+    "3": {
+      "A": {
+        "skill": 0.10682483103689577,
+        "rmse": 0.4096537990529028,
+        "alpha": 1.0
+      },
+      "B": {
+        "skill": 0.01627719199581401,
+        "rmse": 0.4511833731133997,
+        "alpha": 0.001
+      },
+      "C": {
+        "skill": -0.043632312020776665,
+        "rmse": 0.4786608005795738,
+        "alpha": 100.0
+      },
+      "Cprime": {
+        "skill": 0.08811394630953051,
+        "rmse": 0.41823552554794685,
+        "alpha": 100.0
+      },
+      "dm_C_vs_A": {
+        "dm_stat": 5.710240704791408,
+        "p_value": 1.1281649836547558e-08,
+        "mean_loss_diff": 0.06129992693300244,
+        "n": 985,
+        "maxlags": 2
+      },
+      "dm_Cprime_vs_A": {
+        "dm_stat": 1.0699262947336776,
+        "p_value": 0.2846524862250348,
+        "mean_loss_diff": 0.007104719751891265,
+        "n": 985,
+        "maxlags": 2
+      },
+      "skill_diff_ci_C_vs_A": {
+        "lower": -0.4936287269808072,
+        "upper": -0.14454796944165502,
+        "boot_mean": -0.2962460004212998,
+        "boot_std": 0.08913721838096694,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.2914065202415618
+      },
+      "skill_diff_ci_Cprime_vs_A": {
+        "lower": -0.1269727760909342,
+        "upper": 0.0503264060670233,
+        "boot_mean": -0.03275829245511999,
+        "boot_std": 0.044936297207660084,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.033774292462908195
+      }
+    },
+    "6": {
+      "A": {
+        "skill": 0.13158116139004916,
+        "rmse": 0.6837845043315658,
+        "alpha": 1.0
+      },
+      "B": {
+        "skill": 0.05486128777557031,
+        "rmse": 0.7441929828438785,
+        "alpha": 100.0
+      },
+      "C": {
+        "skill": -0.003965870066147348,
+        "rmse": 0.79051291186617,
+        "alpha": 100.0
+      },
+      "Cprime": {
+        "skill": 0.09957363894681448,
+        "rmse": 0.7089869146152502,
+        "alpha": 100.0
+      },
+      "dm_C_vs_A": {
+        "dm_stat": 4.424319603494013,
+        "p_value": 9.674670613524228e-06,
+        "mean_loss_diff": 0.15734941546316591,
+        "n": 982,
+        "maxlags": 5
+      },
+      "dm_Cprime_vs_A": {
+        "dm_stat": 1.391943781400158,
+        "p_value": 0.16393942262460426,
+        "mean_loss_diff": 0.03510119673168698,
+        "n": 982,
+        "maxlags": 5
+      },
+      "skill_diff_ci_C_vs_A": {
+        "lower": -0.4601644066978001,
+        "upper": -0.1208494565051871,
+        "boot_mean": -0.261450660950838,
+        "boot_std": 0.0852902828041203,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.25379618900502066
+      },
+      "skill_diff_ci_Cprime_vs_A": {
+        "lower": -0.16477936025662757,
+        "upper": 0.030740482574055226,
+        "boot_mean": -0.05738169418304638,
+        "boot_std": 0.05047968450175612,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.05661635242682572
+      }
+    },
+    "12": {
+      "A": {
+        "skill": 0.15517884279954408,
+        "rmse": 1.0732908055880168,
+        "alpha": 100.0
+      },
+      "B": {
+        "skill": 0.09843502623706657,
+        "rmse": 1.1453801656512728,
+        "alpha": 100.0
+      },
+      "C": {
+        "skill": 0.04980447291858825,
+        "rmse": 1.2071621479116863,
+        "alpha": 100.0
+      },
+      "Cprime": {
+        "skill": 0.13517639972946438,
+        "rmse": 1.0987026197376006,
+        "alpha": 100.0
+      },
+      "dm_C_vs_A": {
+        "dm_stat": 2.811334672252655,
+        "p_value": 0.004933643849248881,
+        "mean_loss_diff": 0.305287297990982,
+        "n": 976,
+        "maxlags": 11
+      },
+      "dm_Cprime_vs_A": {
+        "dm_stat": 0.6573720555966615,
+        "p_value": 0.5109417152234867,
+        "mean_loss_diff": 0.05519429325849264,
+        "n": 976,
+        "maxlags": 11
+      },
+      "skill_diff_ci_C_vs_A": {
+        "lower": -0.36485864903197535,
+        "upper": -0.06233049007503828,
+        "boot_mean": -0.1984018270328151,
+        "boot_std": 0.07867892321418221,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.18914875203200465
+      },
+      "skill_diff_ci_Cprime_vs_A": {
+        "lower": -0.14845314608128687,
+        "upper": 0.053187748266614626,
+        "boot_mean": -0.03725793974822717,
+        "boot_std": 0.05166326652620428,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.03419707193137356
+      }
+    },
+    "24": {
+      "A": {
+        "skill": 0.17998451540097016,
+        "rmse": 1.4923226264782694,
+        "alpha": 100.0
+      },
+      "B": {
+        "skill": 0.10512754637651,
+        "rmse": 1.6285526742308543,
+        "alpha": 100.0
+      },
+      "C": {
+        "skill": 0.09967399105331676,
+        "rmse": 1.638477442916816,
+        "alpha": 100.0
+      },
+      "Cprime": {
+        "skill": 0.18864018244921454,
+        "rmse": 1.4765704266406363,
+        "alpha": 100.0
+      },
+      "dm_C_vs_A": {
+        "dm_stat": 2.0253327270853188,
+        "p_value": 0.042833210155129864,
+        "mean_loss_diff": 0.4575815094482274,
+        "n": 964,
+        "maxlags": 23
+      },
+      "dm_Cprime_vs_A": {
+        "dm_stat": -0.20229571469486538,
+        "p_value": 0.8396855499004339,
+        "mean_loss_diff": -0.04676659666929006,
+        "n": 964,
+        "maxlags": 23
+      },
+      "skill_diff_ci_C_vs_A": {
+        "lower": -0.2722354991927809,
+        "upper": -0.039515849396413914,
+        "boot_mean": -0.14126619696684262,
+        "boot_std": 0.06033789516946034,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": -0.13816152740368148
+      },
+      "skill_diff_ci_Cprime_vs_A": {
+        "lower": -0.11202601946963948,
+        "upper": 0.10398970139802288,
+        "boot_mean": 0.013200385925046696,
+        "boot_std": 0.05502454220128602,
+        "block_length": 10,
+        "n_boot": 1000,
+        "ci": 0.95,
+        "point_estimate": 0.014120641446137783
+      }
+    }
+  },
+  "interpretation_rule": "redundant",
+  "conclusion": "The reservoir's signal is redundant with the raw window's linear history -- concatenating it does not significantly improve on A at any tested horizon.",
+  "significant_horizons_C_vs_A": [],
+  "significant_horizons_Cprime_vs_A": [],
+  "mean_C_minus_A_skill": -0.1173951119799729,
+  "mean_Cprime_minus_A_skill": -0.017058271150931413,
+  "diagnostics": {
+    "effective_rank_tuned": 1.5139809661334382,
+    "effective_rank_diagnostic_off": 1.0603758272100754,
+    "n_features_B": 165,
+    "mean_feature_variance_tuned": 0.002036573350864634,
+    "mean_feature_variance_diagnostic_off": 0.00025174834077284136
+  }
+}

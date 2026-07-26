@@ -123,7 +123,7 @@ ESN, dimension-matched (234 units, 3 seeds) & $-21.5\%$ & $+25.2\%$ \\
 ESN-500 (3 seeds) & $+2.2\%$ & $+25.0\%$ \\
 Residual-ESN (3 seeds) & $+13.4\%$ & $+28.6\%$ \\
 \textbf{Null-control Ridge (no reservoir)} & $\mathbf{+14.7\%}$ & $+27.0\%$ \\
-Null-control KRR & $-280.0\%$ & $-77.7\%$ \\
+Null-control KRR$^\ddagger$ & $-280.0\%$ & $-77.7\%$ \\
 Residual-Ridge (no reservoir) & $+14.8\%$ & $+27.0\%$ \\
 v4 QRC, residual (20 qubits, pilot-scale$^\dagger$) & $+0.09\%$ & $+0.25\%$ \\
 v5 QRC, residual, dissipation on (12 qubits, pilot-scale$^\dagger$) & $-3.51\%$ & $+5.79\%$ \\
@@ -131,7 +131,11 @@ v5 QRC, residual, dissipation on (12 qubits, pilot-scale$^\dagger$) & $-3.51\%$ 
 \end{tabular}
 \caption{Locked test-split headline numbers. $^\dagger$QRC rows are pilot-scale (train
 2019--2021/eval 2022), reused from an earlier sprint rather than re-run on the full record, for
-real GPU-infrastructure time reasons (Sec.~6).}
+real GPU-infrastructure time reasons (Sec.~6). $^\ddagger$Null-control KRR's training set is
+capped at the most recent 3{,}000 samples (\texttt{null\_krr\_train\_cap}) for tractable kernel
+computation, unlike every other row's full training window -- its markedly worse skill than
+Null-control Ridge is not a clean like-for-like comparison and should not be read as evidence
+against kernel methods generally.}
 \label{tab:headline}
 \end{table}
 
