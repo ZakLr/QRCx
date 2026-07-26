@@ -249,12 +249,20 @@ def main() -> int:
         metrics[name] = evaluate_model(name, preds_eval, y_eval_eval_cols, pers_eval)
 
     fsdh_curves = {}
+    skill_curves = {}
     for name, preds_curve in all_preds_curve.items():
         if name == "persistence":
             continue
         y_model_mh = np.column_stack([preds_curve[h] for h in ALL_HORIZONS])
         y_persist_mh = np.column_stack([pers_curve[h] for h in ALL_HORIZONS])
         fsdh_curves[name] = compute_fsdh_curve(y_eval, y_model_mh, y_persist_mh)
+        # Real per-horizon skill, not just the scalar FSDH -- needed for the
+        # skill-vs-horizon figure; previously computed in-memory above and
+        # discarded, a real gap fixed here rather than worked around again.
+        skill_curves[name] = {
+            str(h): skill_score(y_eval[:, h_idx], preds_curve[h], pers_curve[h])
+            for h_idx, h in enumerate(ALL_HORIZONS)
+        }
 
     pers_gbm = {h: persistence.forecast(X_eval, y_eval[:, 0], horizons=GBM_HORIZONS, target_col_idx=target_col_idx)[h] for h in GBM_HORIZONS}
     ceiling_probes = {
@@ -291,6 +299,7 @@ def main() -> int:
         "metrics": metrics,
         "ceiling_probes": ceiling_probes,
         "fsdh_curves": fsdh_curves,
+        "skill_curves": skill_curves,
         "wall_clock_s": wall_clock,
         "misc_log": misc_log,
     }

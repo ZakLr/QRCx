@@ -77,9 +77,9 @@ def make_headline():
     lines = []
     lines.append(r"\begin{table*}[t]")
     lines.append(r"\centering\footnotesize")
-    lines.append(r"\begin{tabular}{lccccccc}")
+    lines.append(r"\begin{tabular}{lcccc}")
     lines.append(r"\toprule")
-    lines.append(r"Model & RMSE\textdegree C@1h & skill@1h & RMSE\textdegree C@6h & skill@6h & VPT & FSDH & $p$ vs persist. \\")
+    lines.append(r"Model & RMSE\textdegree C (1h/6h) & skill (1h/6h) & FSDH & $p$ vs persist.\ (1h/6h) \\")
     lines.append(r"\midrule")
     for key, disp, kind, fsdh_key in display:
         rows = bench["models"].get(key, {})
@@ -89,9 +89,11 @@ def make_headline():
         r6 = rows.get("6", {})
         rmse1 = f"{r1['rmse_degC']:.2f}" if "rmse_degC" in r1 else "--"
         rmse6 = f"{r6['rmse_degC']:.2f}" if "rmse_degC" in r6 else "--"
-        s1 = pct(r1["skill"], bold=(key == best_1h)) if "skill" in r1 else "--"
-        s6 = pct(r6["skill"], bold=(key == best_6h)) if "skill" in r6 else "--"
-        vpt = f"{r1.get('vpt', float('nan')):.2f}" if "vpt" in r1 else "--"
+        s1 = f"{r1['skill'] * 100:+.1f}\\%" if "skill" in r1 else "--"
+        s6 = f"{r6['skill'] * 100:+.1f}\\%" if "skill" in r6 else "--"
+        skill_str = f"{s1}/{s6}"
+        if key in (best_1h, best_6h):
+            skill_str = f"\\textbf{{{skill_str}}}"
         if fsdh_key and fsdh_key in fsdh_qrc:
             fsdh_v = str(fsdh_qrc[fsdh_key])
         elif key in fsdh_classical:
@@ -99,20 +101,28 @@ def make_headline():
         else:
             fsdh_v = "n/a"
         p1 = r1.get("dm_vs_persistence", {}).get("p_value")
-        pstr = "--" if p1 is None else (f"${p1:.3f}$" if p1 >= 0.001 else "$<0.001$")
+        p6 = r6.get("dm_vs_persistence", {}).get("p_value")
+
+        def pshort(p):
+            if p is None:
+                return "--"
+            return "$<.001$" if p < 0.001 else f"${p:.3f}$"
+
+        pstr = f"{pshort(p1)}/{pshort(p6)}"
         row_name = f"\\textbf{{{disp}}}" if key in (best_1h, best_6h) else disp
-        lines.append(f"{row_name} & {rmse1} & {s1} & {rmse6} & {s6} & {vpt} & {fsdh_v} & {pstr} \\\\")
+        lines.append(f"{row_name} & {rmse1}/{rmse6} & {skill_str} & {fsdh_v} & {pstr} \\\\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
     lines.append(
         r"\caption{Canonical-split (train 2019--2022/val 2023/test 2024), locked test-2024 headline "
-        r"numbers, every row on identical data. RMSE in \textdegree C (exact conversion, "
-        f"std$={std:.4f}$" + r"\textdegree C, \texttt{results/canonical\_units.json}). "
+        r"numbers, every row on identical data. RMSE in \textdegree C "
+        f"(std$={std:.3f}$" + r"\textdegree C, \texttt{results/canonical\_units.json}). "
         r"$p$ is Diebold--Mariano vs.\ persistence; both concat rows also differ significantly from "
-        r"the null-control Ridge baseline (see text), but toward worse skill. FSDH: max consecutive "
-        r"horizon (of 48) beating persistence. $^\dagger$Null-control KRR's training set is capped at "
-        r"3{,}000 samples, unlike every other row's full window. $^\ddagger$GBM is a predictability-"
-        r"ceiling probe, not an RC-comparison baseline; VPT/FSDH/DM not computed for it (see text).}"
+        r"the null-control Ridge baseline (see text), toward worse skill. FSDH: max consecutive "
+        r"horizon (of 48) beating persistence. VPT $=1.0$ for every row except ARIMA(2,1,2) (0.0), "
+        r"omitted as uninformative here. $^\dagger$Null-control KRR's training set is capped at "
+        r"3{,}000 samples. $^\ddagger$GBM is a predictability-ceiling probe, not an RC-comparison "
+        r"baseline; FSDH/DM not computed for it.}"
     )
     lines.append(r"\label{tab:headline}")
     lines.append(r"\end{table*}")
@@ -253,44 +263,9 @@ def make_ipc():
     write("tab_ipc.tex", "\n".join(lines) + "\n")
 
 
-# ---------------------------------------------------------------------------
-# Table: Dirac-3 / SA / Lasso / greedy comparison (Sec 7.5)
-# ---------------------------------------------------------------------------
-def make_dirac3():
-    d = load("dirac3/comparison.json")
-    lines = []
-    lines.append(r"\begin{table}[t]")
-    lines.append(r"\centering\footnotesize")
-    lines.append(r"\begin{tabular}{lcccc}")
-    lines.append(r"\toprule")
-    lines.append(r"$K$ & SA & Lasso & Greedy & Full (165 feat.) \\")
-    lines.append(r"\midrule")
-    for K in ("32", "64", "128"):
-        row = d["by_K"][K]
-        sa, lasso, greedy, full = (row["sa"]["rmse"], row["lasso"]["rmse"],
-                                    row["greedy"]["rmse"], row["full_no_selection"]["rmse"])
-        best = min(sa, lasso, greedy)
-        def fmt(v):
-            s = f"{v:.4f}"
-            return f"\\textbf{{{s}}}" if v == best else s
-        lines.append(f"{K} & {fmt(sa)} & {fmt(lasso)} & {fmt(greedy)} & {full:.4f} \\\\")
-    lines.append(r"\bottomrule")
-    lines.append(r"\end{tabular}")
-    lines.append(
-        r"\caption{RMSE (scaled units) of Ridge on the $K$-feature subset selected by each method, "
-        r"vs.\ the unsparsified 165-feature ridge, on real driven $v5$ pilot features. Real device "
-        r"attempt failed at client initialization (no credentials configured); SA is the local "
-        r"stand-in behind the identical solver interface.}"
-    )
-    lines.append(r"\label{tab:dirac3}")
-    lines.append(r"\end{table}")
-    write("tab_dirac3.tex", "\n".join(lines) + "\n")
-
-
 if __name__ == "__main__":
     make_headline()
     make_ablation()
     make_concat()
     make_ipc()
-    make_dirac3()
     print("\nAll tables regenerated from results/*.json.")
