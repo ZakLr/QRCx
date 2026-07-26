@@ -1,0 +1,29 @@
+{
+  "n_qubits": 20,
+  "n_layers": 3,
+  "trotter_steps": 10,
+  "seed": 42,
+  "batch_size": 256,
+  "dtype": "<class 'numpy.complex64'>",
+  "cost_projection": {
+    "s_per_window": 0.12939474664000045,
+    "projected_hours": 1.1808708350307153
+  },
+  "n_train": 22143,
+  "n_val": 5269,
+  "n_test": 5442,
+  "drives": {
+    "train": {
+      "wall_clock_s": 2745.5891900429997,
+      "s_per_window": 0.12399355055968024
+    },
+    "val": {
+      "wall_clock_s": 651.8441090630004,
+      "s_per_window": 0.12371305922622895
+    },
+    "test": {
+      "wall_clock_s": 673.3784886840003,
+      "s_per_window": 0.12373731875854471
+    }
+  }
+}

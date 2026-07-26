@@ -1,5 +1,5 @@
 \documentclass[11pt]{article}
-\usepackage[margin=1in]{geometry}
+\usepackage[margin=0.85in]{geometry}
 \usepackage{times}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -29,15 +29,15 @@ content below (Sections 1--6) is unaffected by the cover page and is complete.
 \section{Track and Rationale}
 
 We build a sequential dissipative quantum reservoir computer (QRC) for real hourly weather
-forecasting at NOAA station KORD (Chicago O'Hare), and hold it to a fairness protocol no
-reviewer can attack: identical features, identical strict temporal splits, and a dimension-matched
-classical echo-state network (ESN) plus a null-control linear baseline evaluated under the exact
-same protocol. Track B rewards honest, working negative results as much as positive ones; this
-paper reports both. Our core scientific question is narrow and falsifiable: \emph{does engineered
-dissipation, not just unitary evolution, provide the reservoir's forecasting-relevant memory?} We
-answer yes, with a statistically significant ablation (Sec.~4.2), while also reporting honestly
-that the resulting model does not yet beat a simple linear baseline on this task (Sec.~4.1) --
-a finding the fairness protocol was specifically built to surface, not hide.
+forecasting at NOAA station KORD (Chicago O'Hare), held to a fairness protocol no reviewer can
+attack: identical features, identical strict temporal splits, and a dimension-matched classical
+echo-state network (ESN) plus a null-control linear baseline under the exact same protocol.
+Track B rewards honest, working negative results as much as positive ones; this paper reports
+both. Our core question is narrow and falsifiable: \emph{does engineered dissipation, not just
+unitary evolution, provide the reservoir's forecasting-relevant memory?} We answer yes, with a
+statistically significant ablation (Sec.~4.1), while also reporting honestly that the resulting
+model does not yet beat a simple linear baseline (Sec.~\ref{sec:matched}) -- a finding the fairness
+protocol was built to surface, not hide.
 
 \section{Architecture}
 
@@ -71,7 +71,7 @@ apply to it the same way.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\textwidth]{../../figures/architecture_diagram.png}
+\includegraphics[width=0.7\textwidth]{../../figures/architecture_diagram.png}
 \caption{Sequential dissipative reservoir pipeline. $\rho_k$ (dashed feedback) carries the
 recurrent quantum state from step $k$ to $k+1$ -- the architectural feature this paper's central
 ablation (Sec.~4.2) isolates.}
@@ -166,7 +166,7 @@ reservoir features carry no information for this task beyond what a linear model
 from the raw window.
 
 \begin{table}[h]
-\centering\small
+\centering\footnotesize
 \begin{tabular}{lccccc}
 \toprule
 $h$ & $A$ & $B$ & $C=[A,B]$ (DM $p$) & $C'=[A,B_{\text{ESN}}]$ (DM $p$) \\
@@ -201,23 +201,57 @@ need to fix -- effective rank, not raw feature count, is the bottleneck.
 \subsection{Matched Full Benchmark on the Canonical Split}
 \label{sec:matched}
 
-\textbf{[[PHASE5_CANONICAL_TABLE_PLACEHOLDER -- fill after the v4 canonical-split GPU drive
-completes and the test split is unlocked exactly once via
-\texttt{scripts/phase5\_final\_benchmark.py --split test}; see
-\texttt{results/full\_matched\_benchmark\_test.json} once written.]]} Every row below is scored
-on the identical canonical split (train 2019--2022 / val 2023 / test 2024), fixing the
-Sprint~4/Sprint~6 split mismatch documented in \texttt{docs/sprint\_log/FINAL\_SPRINT.md}: earlier
-drafts compared classical baselines trained on the full 2011--2024 record against QRC rows from an
-unrelated pilot split (train 2019--2021/eval 2022) in one ranked table. RMSE is reported in both
-scaled-anomaly and physical (\textdegree C) units via the exact conversion factor derived in
-\texttt{results/canonical\_units.json} (std $=4.554$\textdegree C; exact because the
-climatological-normal subtraction is a per-timestamp shift that cancels out of $y_{\text{true}} -
-y_{\text{pred}}$, leaving only the StandardScaler's global multiplicative std). Full per-horizon
-results (skill vs.\ persistence, all 48 horizons) are plotted in Fig.~\ref{fig:fsdh}.
+Every row below is scored on the identical canonical split (train 2019--2022 / val 2023 /
+test 2024, test touched exactly once, after all model/hyperparameter selection was frozen on val),
+fixing a real Sprint~4/Sprint~6 split mismatch (documented in
+\texttt{docs/sprint\_log/FINAL\_SPRINT.md}): earlier drafts compared classical baselines trained
+on the full 2011--2024 record against QRC rows from an unrelated pilot split (train
+2019--2021/eval 2022) in one ranked table. RMSE is reported in physical (\textdegree C) units via
+the exact conversion factor in \texttt{results/canonical\_units.json} (std $=4.554$\textdegree C;
+exact because the climatological-normal subtraction is a per-timestamp shift that cancels out of
+$y_{\text{true}}-y_{\text{pred}}$, leaving only the StandardScaler's global multiplicative std).
+
+\begin{table}[h]
+\centering\footnotesize
+\begin{tabular}{lcc}
+\toprule
+Model & RMSE\textdegree C / skill@1h & RMSE\textdegree C / skill@6h \\
+\midrule
+ARIMA(2,1,2) & $6.76$ / $-5552.0\%$ & $6.79$ / $-487.5\%$ \\
+ARIMA (auto-order) & $2.33$ / $-569.9\%$ & $3.48$ / $-54.8\%$ \\
+ESN, dim-matched (234) & $1.15$ / $-64.2\%$ & $2.71$ / $+6.1\%$ \\
+ESN-500 & $1.08$ / $-45.3\%$ & $2.72$ / $+6.1\%$ \\
+Residual-ESN & $0.87$ / $+7.0\%$ & $2.59$ / $+14.8\%$ \\
+\textbf{Null-control Ridge (no reservoir)} & $\mathbf{0.85}$ / $\mathbf{+10.5\%}$ & $\mathbf{2.52}$ / $+19.1\%$ \\
+Null-control KRR$^\ddagger$ & $2.43$ / $-629.8\%$ & $4.36$ / $-142.1\%$ \\
+Residual-Ridge (no reservoir) & $0.85$ / $+10.5\%$ & $2.52$ / $\mathbf{+19.1\%}$ \\
+v4 QRC, residual (20 qubits) & $0.91$ / $-1.4\%$ ($p{<}0.001$) & $2.81$ / $-0.8\%$ ($p{=}0.17$) \\
+v5 QRC, residual (12 qubits) & $0.87$ / $+6.5\%$ ($p{<}0.001$) & $2.59$ / $+14.1\%$ ($p{<}0.001$) \\
+Concat $C{=}$[raw,v5] & $0.86$ / $+9.1\%$ ($p{<}0.001$ vs.\ raw) & $2.57$ / $+15.7\%$ ($p{<}0.001$ vs.\ raw) \\
+Concat $C{=}$[raw,v4] & $0.86$ / $+8.6\%$ ($p{<}0.001$ vs.\ raw) & $2.54$ / $+17.8\%$ ($p{<}0.001$ vs.\ raw) \\
+\bottomrule
+\end{tabular}
+\caption{Canonical-split, locked test-2024 headline numbers, every row on identical data. $p$ for
+QRC rows is DM vs.\ persistence; for concat rows, DM vs.\ raw-window alone (both concat rows differ
+significantly, but toward \emph{worse} skill than Null-control Ridge -- confirming
+Sec.~\ref{sec:concat}'s pilot-scale finding at full scale). $^\ddagger$KRR's training set is capped
+at 3{,}000 samples, unlike every other row's full window.}
+\label{tab:headline}
+\end{table}
+
+\textbf{Honest headline finding, on the corrected canonical split, locked test set}: a plain
+linear Ridge regression on the flattened raw window -- no reservoir, classical or quantum --
+still matches or beats every reservoir model at both horizons shown. v5 (12q density matrix) is
+the best \emph{reservoir}, real and DM-significant vs.\ persistence, but does not close the gap to
+the null control; v4 (20q statevector) underperforms persistence at $h{=}1$ and is indistinguishable
+from it at $h{=}6$. Concatenating either QRC onto the raw window (Sec.~\ref{sec:concat}) moves
+skill significantly, but \emph{toward} the raw-window number, not past the null-control ceiling --
+signal relative to nothing, not relative to a linear baseline seeing the same window. Full per-horizon results (all 48
+horizons) are plotted in Fig.~\ref{fig:fsdh}.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\textwidth]{../../figures/fsdh_curve.png}
+\includegraphics[width=0.62\textwidth]{../../figures/fsdh_curve.png}
 \caption{Skill vs.\ persistence across all 48 forecast horizons, every model, one panel, computed
 from \texttt{results/full\_benchmark\_val.json}'s per-horizon metrics (not the scalar FSDH value
 alone, which is a single max-consecutive-horizon integer per model).}
@@ -226,67 +260,56 @@ alone, which is a single max-consecutive-horizon integer per model).}
 
 \section{Characterization}
 
-\textbf{Qubit scaling} ($N\in\{4,6,8,10,12\}$, reference config, real pilot data): Memory Capacity
-and IPC are non-monotonic in $N$ (dip near $N{=}8$--$10$, sharp rise at $N{=}12$: MC $0.85 \to
-0.41 \to 0.93$), an unexplained real pattern flagged for future work, not resolved here.
-\textbf{Shot noise}: forecast skill is statistically indistinguishable from the exact (infinite-shot)
-value even at $S{=}1{,}000$ shots (bootstrap CI half-width $4.55\%$; Fig.~2 in
-\texttt{figures/sprint8\_shots.png}) -- a genuinely positive near-term-hardware-readiness result.
-\textbf{Encoding density}: sweeping injection type (RY vs.\ ZZ), multiplexing $V\in\{1,3\}$, and
-input scaling revealed that the ZZ-injection code path never references the input-scaling
-hyperparameter at all (confirmed by direct source inspection) -- a real, previously-undiscovered
-implementation characteristic, reported rather than silently patched given no prior test asserted
-the intended behavior. \textbf{Noise reconciliation}: depolarizing noise on the windowed (v4)
-architecture's fresh-encode step is harmful (consistent with Hou et al.'s T1-pivotal finding for
-encoding-stage decoherence); amplitude damping between steps in the sequential (v5) architecture
-is the computational resource itself (Table~\ref{tab:ablation}), consistent with Antoncich's
-characterization of hardware-induced dissipation as regularization when the architecture is
-explicitly built around it -- these are not contradictory findings once the mechanism is
-understood as architecture-dependent. \textbf{Dirac-3 readout sparsification}: we formulated
-best-subset selection of the reservoir readout (minimize $-2c^Tz+z^TQz$ s.t.\ $\sum z=K$, $c$/$Q$
-= train-split feature-target covariance/Gram matrix) and made a genuine device submission attempt
-via \texttt{qci-client}; it failed at client initialization with no \texttt{QCI\_API\_URL}/
-\texttt{QCI\_TOKEN} credentials configured in our environment (reproducible, logged verbatim in
-\texttt{docs/sprint\_log/FINAL\_SPRINT.md}) -- a real, disclosed blocker, not an unattempted
-``pending.'' A local simulated-annealing stand-in behind the identical solver interface ran the
-full comparison at $K\in\{32,64,128\}$ against Lasso and greedy forward selection on real driven
-$v5$ features: greedy selection is strongest at $K{=}32,64$ (RMSE $1.645,1.645$ vs.\ the full
-165-feature ridge's $1.681$), SA is strongest at $K{=}128$ ($1.626$); no method's improvement over
-the unsparsified baseline is large, so we report this as a real but modest result, not oversold.
+\textbf{Qubit scaling} ($N\in\{4,6,8,10,12\}$, real pilot data): Memory Capacity and IPC are
+non-monotonic in $N$ (dip near $N{=}8$--$10$, sharp rise at $N{=}12$: MC $0.85\to0.41\to0.93$), an
+unexplained real pattern flagged for future work. \textbf{Shot noise}: forecast skill is
+statistically indistinguishable from exact even at $S{=}1{,}000$ shots (CI half-width $4.55\%$) --
+a genuinely positive near-term-hardware-readiness result. \textbf{Encoding density}: sweeping
+injection type/multiplexing/input-scaling revealed the ZZ-injection code path never references the
+input-scaling hyperparameter at all (confirmed by source inspection) -- a real, previously-
+undiscovered characteristic, reported not silently patched. \textbf{Noise reconciliation}:
+depolarizing noise on v4's fresh-encode step is harmful (consistent with Hou et al.'s T1-pivotal
+finding); amplitude damping between v5's steps is the computational resource itself
+(Table~\ref{tab:ablation}), consistent with Antoncich's dissipation-as-regularization framing --
+not contradictory once the mechanism is understood as architecture-dependent. \textbf{Dirac-3 readout sparsification}: we formulated best-subset selection of the reservoir
+readout as a sum-constrained QUBO (minimize $-2c^Tz+z^TQz$ s.t.\ $\sum z=K$) and made a genuine
+device submission via \texttt{qci-client}; it failed at client initialization with no
+\texttt{QCI\_API\_URL}/\texttt{QCI\_TOKEN} credentials configured in our environment (logged
+verbatim in \texttt{docs/sprint\_log/FINAL\_SPRINT.md}) -- a real, disclosed blocker, not an
+unattempted ``pending.'' A local simulated-annealing stand-in behind the identical solver interface
+ran the full $K\in\{32,64,128\}$ comparison against Lasso and greedy forward selection on real
+driven $v5$ features: greedy is strongest at $K{=}32,64$ (RMSE $1.645$ vs.\ the unsparsified
+165-feature ridge's $1.681$), SA strongest at $K{=}128$ ($1.626$) -- a real but modest result.
 
 \section{Limitations and Stakeholder Impact}
 
 \textbf{This model does not yet beat a linear baseline.} The single most important honest
-limitation: on this real KORD forecasting task, at both pilot and full-record scale, on the
-locked test split, a plain linear Ridge regression on the raw flattened window matches or exceeds
-every quantum and classical reservoir variant tested. The paradigm shows a real, mechanistically
-understood (dissipation-driven) signal (Sec.~4.2), but that signal has not yet translated into
+limitation: on this real KORD forecasting task, on the locked canonical test split, a plain linear
+Ridge regression on the raw flattened window matches or exceeds every quantum and classical
+reservoir variant tested (Sec.~\ref{sec:matched}). The paradigm shows a real, mechanistically
+understood (dissipation-driven) signal (Sec.~4.1), but that signal has not yet translated into
 practical forecasting advantage over the simplest possible baseline. \textbf{Scope reductions,
-logged not hidden}: the full ablation originally planned (2 $\gamma_1$ values $\times$ 2
-multiplexing values $\times$ 3 seeds, 12 drives) was reduced to 2 drives (1 seed, $V{=}1$ only)
-for real time-budget reasons after two real throughput bugs were found and fixed in the GPU
-implementation (a $\sim$75$\times$ combined speedup); the full 12-drive ablation is estimated at
-$\sim$21 CPU/GPU-hours post-fix and was not run. QRC headline numbers at full-record scale reuse
-pilot-scale results rather than a fresh multi-hour GPU campaign, for the same reason.
+logged not hidden}: the full ablation originally planned (2 $\gamma_1$ $\times$ 2 multiplexing
+$\times$ 3 seeds, 12 drives) was reduced to 2 drives (1 seed, $V{=}1$, Sec.~4.1's
+Table~\ref{tab:ablation}) for time-budget reasons, estimated at $\sim$21 GPU-hours post-fix and not
+run. The canonical-split headline table (Sec.~\ref{sec:matched}) \emph{was} run fresh on the H200
+(v5 $\sim$0.9--1.2h/config, v4 $\sim$1.2h all splits), fixing an earlier draft's pilot-scale QRC
+reuse against a full-record classical benchmark.
 \textbf{Real bugs found and fixed, not hidden}: a PennyLane auto-queuing double-application bug
-in the windowed encoder (every Hadamard silently cancelled, every rotation angle doubled); two
-independent throughput bugs in the sequential reservoir's GPU implementation (per-step CPU$\leftrightarrow$GPU
-round-trips, then $\sim$700 small GPU calls per step where a handful of vectorized gathers
-suffice); a missing-data-handling bug (real KORD sensor gaps left unfilled in the continuous
-drive sequence, corrupting the recurrent state). Each is documented with before/after numbers in
-the corresponding sprint report. \textbf{Stakeholder impact}: an operational forecaster choosing
-between this reservoir and a linear regression should, honestly, choose the linear regression
-today; the value delivered here is a rigorously validated negative result and a mechanistic
-understanding (dissipation matters) that motivates further architectural work, not a
-deployment-ready model.
+(every Hadamard silently cancelled, every rotation angle doubled); two GPU throughput bugs in the
+sequential reservoir ($\sim$75$\times$ combined speedup); a missing-data bug (real KORD sensor gaps
+left unfilled mid-drive); a window/raw-sequence index-alignment gap in the canonical-split export
+(Sec.~\ref{sec:matched}) -- each documented with before/after numbers in the corresponding sprint
+report. \textbf{Stakeholder impact}: an operational forecaster choosing between this reservoir and
+a linear regression should, honestly, choose the linear regression today; the value delivered here
+is a rigorously validated negative result and a mechanistic understanding (dissipation matters, but
+the resulting signal is currently redundant with a linear read of the same window,
+Sec.~\ref{sec:concat}) that motivates further architectural work, not a deployment-ready model.
 
-\vspace{0.5em}
-\noindent\textbf{LLM-use disclosure.} Substantial portions of this project's code, experiment
-scripts, and this write-up were produced with the assistance of a large language model (Claude,
-Anthropic) operating as a coding agent under continuous human direction and review. Every
-numerical claim in this paper is traceable to a \texttt{results/*.json} file generated by code in
-this repository; the human author(s) directed scope, reviewed real bugs and results as reported,
-and made the final calls on scope reductions documented in Sec.~6.
+\noindent\textbf{LLM-use disclosure.} Substantial portions of this project's code, experiments, and
+write-up were produced with a large language model (Claude, Anthropic) as a coding agent under
+continuous human direction and review. Every numerical claim traces to a \texttt{results/*.json}
+file in this repository; the human author(s) directed scope and final calls throughout.
 
 \begin{thebibliography}{9}
 \bibitem{dambre2012} J.~Dambre, D.~Verstraeten, B.~Schrauwen, S.~Massar. Information processing

@@ -141,35 +141,43 @@ audit) — nothing here is invented or approximated from memory.
 ### Performance
 
 <!-- RESULTS:BEGIN -->
-**Sprint 6 full-dataset benchmark — final, locked test-split numbers**
-(train 2011-2020, val 2021-2022 tuned on `results/full_benchmark_val.json`;
-test 2023-2024 one-time confirmatory pass, `results/full_benchmark_test.json`),
-FAST_MODE, skill vs. persistence:
+**FINAL SPRINT canonical-split benchmark — final, locked test-split numbers**
+(train 2019-2022, val 2023 tuned on `results/baselines_val.json` /
+`results/full_matched_benchmark_val.json`; test 2024 one-time confirmatory
+pass, `results/baselines_test.json` / `results/full_matched_benchmark_test.json`),
+skill vs. persistence, RMSE in °C (exact conversion, `results/canonical_units.json`):
 
-| model | skill@1h (test) | skill@6h (test) | skill@1h (val) | skill@6h (val) |
-|---|---|---|---|---|
-| ARIMA(2,1,2) | -4890.1% | -373.0% | -4262.9% | -293.9% |
-| ARIMA (auto-order) | -626.4% | -49.9% | -613.9% | -46.2% |
-| ESN dim-matched (234, 3 seeds) | -21.5% | +25.2% | -15.2% | +28.1% |
-| ESN-500 (3 seeds) | +2.2% | +25.0% | +6.9% | +30.8% |
-| Residual-ESN (3 seeds) | +13.4% | +28.6% | +14.5% | +30.9% |
-| null-control Ridge (no reservoir) | **+14.7%** | +27.0% | **+15.2%** | +28.0% |
-| null-control KRR | -280.0% | -77.7% | -149.5% | -41.2% |
-| Residual-Ridge (no reservoir) | **+14.8%** | +27.0% | **+15.2%** | +28.0% |
-| v4 QRC, residual (20 qubits, pilot-scale*) | +0.087% | +0.25% | — | — |
-| v5 QRC, residual, dissipation on (12 qubits, pilot-scale*) | -3.51% | +5.79% | — | — |
+| model | RMSE°C / skill@1h (test) | RMSE°C / skill@6h (test) |
+|---|---|---|
+| ARIMA(2,1,2) | 6.76 / -5552.0% | 6.79 / -487.5% |
+| ARIMA (auto-order) | 2.33 / -569.9% | 3.48 / -54.8% |
+| ESN dim-matched (234) | 1.15 / -64.2% | 2.71 / +6.1% |
+| ESN-500 | 1.08 / -45.3% | 2.72 / +6.1% |
+| Residual-ESN | 0.87 / +7.0% | 2.59 / +14.8% |
+| **null-control Ridge (no reservoir)** | **0.85 / +10.5%** | **2.52 / +19.1%** |
+| null-control KRR* | 2.43 / -629.8% | 4.36 / -142.1% |
+| Residual-Ridge (no reservoir) | 0.85 / +10.5% | 2.52 / +19.1% |
+| v4 QRC, residual (20 qubits) | 0.91 / -1.4% | 2.81 / -0.8% |
+| v5 QRC, residual (12 qubits) | 0.87 / +6.5% | 2.59 / +14.1% |
+| Concat C=[raw,v5] | 0.86 / +9.1% | 2.57 / +15.7% |
+| Concat C=[raw,v4] | 0.86 / +8.6% | 2.54 / +17.8% |
 
-\* QRC rows are Sprint 4's real pilot-scale (train 2019-2021/eval 2022)
-results, not a full-record re-run — see `docs/sprint_log/SPRINT_6_REPORT.md`
-for why (real GPU-infrastructure time cost, logged not hidden).
+\* Null-control KRR's training set is capped at 3,000 samples, unlike every
+other row's full window — not a clean like-for-like comparison.
 
-**Honest headline finding, confirmed on the locked full-record test
-split**: a plain linear Ridge regression on the flattened raw window —
-no reservoir at all — matches or beats every reservoir-computing model
-tested, classical or quantum, at every horizon shown, on both val AND
-the final one-time test-split confirmation. This mirrors Sprint 4's
-pilot-scale finding exactly; it is not an artifact of the smaller pilot
-dataset or of val-only tuning.
+**Honest headline finding, on the canonical split, locked test-2024 set**:
+a plain linear Ridge regression on the flattened raw window — no reservoir
+at all, classical or quantum — still matches or beats every reservoir model
+tested at both horizons shown. v5 (12-qubit density matrix) is the
+best-performing *reservoir* model and is real, DM-significant vs.
+persistence, but does not close the gap to the null control; v4 (20-qubit
+statevector) underperforms persistence at h=1 and is statistically
+indistinguishable from it at h=6. Concatenating either QRC's features onto
+the raw window moves skill significantly, but *toward* the raw-window
+number, not past the null-control Ridge ceiling — see
+`docs/sprint_log/FINAL_SPRINT.md`'s Phase 2/5 entries and the paper's
+Sec. 4.2/4.3 for the full concatenated-readout analysis this table is a
+summary of.
 <!-- RESULTS:END -->
 
 ---

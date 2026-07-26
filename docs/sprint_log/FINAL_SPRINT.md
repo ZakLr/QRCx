@@ -247,8 +247,55 @@ Dirac-3 outcome, every scope cut with its reason.
   16.86% at h=1, 28.10% vs 28.05% at h=6 — the small gap is a
   different alpha-tuning protocol, not a bug), confirming this
   reimplementation is sound.
-- **Still to do**: fetch v4 features once its drive completes, re-run
-  `phase5_final_benchmark.py --split val` with v4 included, then the
-  one-time `--split test` confirmatory run, then update the paper's
-  Sec.~4.3 placeholder table and the README's headline table with the
-  final canonical-split numbers.
+- **v4 canonical drive completed real, measured**: train 2745.6s
+  (0.1240 s/window), val 651.8s (0.1237 s/window), test similar (all
+  three fetched: `results/phase5_v4_features_{train,val,test}.npy`,
+  `results/phase5_v4_canonical_drive_results.json`).
+- **Final val-split run** (all rows, `results/full_matched_benchmark_val.json`):
+  h=1: v5=+10.55%, v4=-1.47%, null_ridge=+16.79%, concat_C[v5]=+14.81%,
+  concat_C[v4]=+15.55%. h=6: v5=+19.08%, v4=-1.58%, null_ridge=+28.10%,
+  concat_C[v5]=+26.85%, concat_C[v4]=+26.59%.
+- **ONE-TIME test-2024 confirmatory run** (`--split test`, unlocked via
+  `split_guard.UNLOCK_TOKEN` -- this final-sprint run *is* the
+  designated one-time confirmatory event the split-guard docstring
+  reserves the token for, formalized here). Also ran
+  `generate_baselines.py --fast-mode --split test`
+  (`QRCX_UNLOCK_TEST_SPLIT=1`) for the classical rows' test numbers
+  (`results/baselines_test.json`). Real final numbers, h=1/h=6:
+  - persistence: 0% / 0% (RMSE 0.899°C / 2.801°C)
+  - ARIMA(2,1,2): -5552.0% / -487.5%
+  - ARIMA (auto): -569.9% / -54.8%
+  - ESN dim-matched: -64.2% / +6.1%
+  - ESN-500: -45.3% / +6.1%
+  - Residual-ESN: +7.0% / +14.8%
+  - **null-control Ridge: +10.5% / +19.1%** (RMSE 0.851°C / 2.520°C)
+  - null-control KRR (3k-cap, not clean comparison): -629.8% / -142.1%
+  - Residual-Ridge: +10.5% / +19.1%
+  - v4 QRC (20q, residual): -1.4% ($p{<}0.001$) / -0.8% ($p{=}0.167$,
+    not significant)
+  - v5 QRC (12q, residual): +6.5% ($p{<}0.001$) / +14.1% ($p{<}0.001$)
+  - concat C=[raw,v5]: +9.1% / +15.7% (both $p{<}0.001$ vs.\ raw alone,
+    but the DIRECTION is toward null_ridge's raw-window number, not
+    past it -- confirms the pilot-scale "redundant" finding at full
+    canonical scale with locked-test significance)
+  - concat C=[raw,v4]: +8.6% / +17.8% (same pattern)
+  - Cross-check: `null_ridge_raw_window` (my own reimplementation in
+    `phase5_final_benchmark.py`) gave +10.51%/+18.94%, matching
+    `generate_baselines.py`'s independently-computed `null_ridge`
+    (+10.47%/+19.08%) to within ~0.1-0.2pp -- consistent, confirms
+    both pipelines are sound.
+- **Real headline finding, now on the corrected canonical split, locked
+  test-2024**: unchanged in substance from the earlier pilot/full-record
+  findings -- a plain linear Ridge on the raw window still beats every
+  reservoir model (classical or quantum) at both horizons. v5 is the
+  best-performing *reservoir* and is real/significant vs. persistence;
+  v4 is not distinguishable from (or worse than) persistence. Both
+  paper (`docs/paper/main.tex`, Sec.~\ref{sec:matched}) and README
+  updated with these final numbers.
+- **Paper page-budget note**: after the Sec.~4.2/4.3 rewrite, LaTeX
+  compiled to 7 pages; trimmed prose (headline-table caption, IPC
+  section, Characterization, Limitations) and reduced margins to
+  0.85in / two tables to \footnotesize to bring body content back to
+  exactly 5 pages (references on a clean 6th page, "5 pages, references
+  excluded" per spec) -- verified by compiling a bibliography-stripped
+  copy at every trim step, not just eyeballing the final PDF.
