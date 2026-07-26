@@ -1,4 +1,4 @@
-\begin{table*}[t]
+\begin{table}[t]
 \centering\footnotesize
 \begin{tabular}{lccccc}
 \toprule
@@ -22,4 +22,4 @@ GBM ceiling probe$^\ddagger$ & 1.11/2.72 & -51.2\%/+5.9\% & n/a & n/a & --/-- \\
 \end{tabular}
 \caption{Canonical-split (train 2019--2022/val 2023/test 2024), locked test-2024 headline numbers, every row on identical data. RMSE in \textdegree C (std$=4.554$\textdegree C, \texttt{results/canonical\_units.json}). $p$ is Diebold--Mariano vs.\ persistence; both concat rows also differ significantly from the null-control Ridge baseline (see text), toward worse skill. VPT: max consecutive horizon (hours) with NRMSE below 0.4. FSDH: max consecutive horizon (of 48) beating persistence. $^\dagger$Null-control KRR's training set is capped at 3{,}000 samples; VPT/FSDH not computed for it (never swept over all 48 horizons) -- Null-control Ridge and Residual-Ridge instead reuse the equivalent raw-window-Ridge VPT/FSDH sweep from Sec.~\ref{sec:concat}. $^\ddagger$GBM is a predictability-ceiling probe, not an RC-comparison baseline; VPT/FSDH/DM not computed for it.}
 \label{tab:headline}
-\end{table*}
+\end{table}

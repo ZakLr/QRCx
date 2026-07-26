@@ -1,0 +1,16 @@
+\begin{table}[t]
+\centering\footnotesize
+\begin{tabular}{lccccc}
+\toprule
+$h$ & $A$ (raw window) & $B$ (v5 only) & $C{=}[A,B]$ & $C'{=}[A,B_{\text{ESN}}]$ \\
+\midrule
+1 & +8.30\% & +2.68\% & -3.22\% ($p{<}0.001$) & +5.98\% ($p{=}0.008$) \\
+3 & +10.68\% & +1.63\% & -4.36\% ($p{<}0.001$) & +8.81\% ($p{=}0.28$) \\
+6 & +13.16\% & +5.49\% & -0.40\% ($p{<}0.001$) & +9.96\% ($p{=}0.16$) \\
+12 & +15.52\% & +9.84\% & +4.98\% ($p{=}0.005$) & +13.52\% ($p{=}0.51$) \\
+24 & +18.00\% & +10.51\% & +9.97\% ($p{=}0.04$) & +18.86\% ($p{=}0.84$) \\
+\bottomrule
+\end{tabular}
+\caption{Skill vs.\ persistence for the raw-window model ($A$), reservoir-only model ($B$), concatenated quantum model ($C$), and concatenated classical-ESN-control model ($C'$); real driven $v5$ pilot features (10 qubits, $\gamma_1{=}0.03$), 75/25 fit/eval split. $p$ is Diebold--Mariano vs.\ $A$ alone. At every horizon, $C$ is either not significantly different from $A$ or significantly \emph{worse}; $C'$ (classical control) shows the same pattern -- no row shows the quantum reservoir adding real information beyond the raw window, and beyond what a generic classical reservoir of matched size already provides.}
+\label{tab:concat}
+\end{table}

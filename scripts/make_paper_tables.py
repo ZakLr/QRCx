@@ -3,12 +3,13 @@
 results/*.json, so main.tex \\input's these fragments and the paper
 cannot drift from the underlying data. Run before every paper compile.
 
-Tables written to docs/paper/tables/*.tex:
+Tables written to docs/paper/tables/*.tex (twocolumn, table* spanning both
+columns) AND docs/paper/tables_1col/*.tex (plain table, for the
+single-column paper variant):
   tab_headline.tex   -- Sec 6.3, ONE table, every model, canonical test split
   tab_ablation.tex   -- Sec 6.1, dissipation on/off
   tab_concat.tex     -- Sec 6.2, A/B/C/C' concatenated readout
   tab_ipc.tex        -- Sec 5, IPC-matched vs reference config
-  tab_dirac3.tex     -- Sec 7.5, Dirac-3/SA/Lasso/greedy comparison
 """
 import json
 from pathlib import Path
@@ -16,6 +17,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS = REPO_ROOT / "results"
 OUT_DIR = REPO_ROOT / "docs" / "paper" / "tables"
+OUT_DIR_1COL = REPO_ROOT / "docs" / "paper" / "tables_1col"
 
 
 def pct(x, bold=False):
@@ -34,6 +36,14 @@ def write(name, content):
     with open(path, "w") as f:
         f.write(content)
     print(f"Wrote {path}")
+    # Single-column variant: table*/figure* are twocolumn-only environments
+    # (invalid in a plain, non-twocolumn documentclass) -- swap to the
+    # non-starred form, which already spans the full (now wider) column.
+    OUT_DIR_1COL.mkdir(parents=True, exist_ok=True)
+    content_1col = (content.replace(r"\begin{table*}", r"\begin{table}")
+                            .replace(r"\end{table*}", r"\end{table}"))
+    with open(OUT_DIR_1COL / name, "w") as f:
+        f.write(content_1col)
 
 
 # ---------------------------------------------------------------------------
@@ -42,8 +52,12 @@ def write(name, content):
 def make_headline():
     bench = load("full_matched_benchmark_test.json")
     units = load("canonical_units.json")
-    fsdh_classical = load("baselines_test.json")["fsdh_curves"]
-    fsdh_qrc = load("qrc_fsdh_test.json")["fsdh"]
+    baselines_test = load("baselines_test.json")
+    fsdh_classical = baselines_test["fsdh_curves"]
+    vpt_classical = baselines_test["vpt_curves"]
+    qrc_fsdh = load("qrc_fsdh_test.json")
+    fsdh_qrc = qrc_fsdh["fsdh"]
+    vpt_qrc = qrc_fsdh["vpt"]
     std = units["std_scaled_to_anomaly"]
 
     display = [
@@ -77,9 +91,9 @@ def make_headline():
     lines = []
     lines.append(r"\begin{table*}[t]")
     lines.append(r"\centering\footnotesize")
-    lines.append(r"\begin{tabular}{lcccc}")
+    lines.append(r"\begin{tabular}{lccccc}")
     lines.append(r"\toprule")
-    lines.append(r"Model & RMSE\textdegree C (1h/6h) & skill (1h/6h) & FSDH & $p$ vs persist.\ (1h/6h) \\")
+    lines.append(r"Model & RMSE\textdegree C (1h/6h) & skill (1h/6h) & VPT & FSDH & $p$ vs persist.\ (1h/6h) \\")
     lines.append(r"\midrule")
     for key, disp, kind, fsdh_key in display:
         rows = bench["models"].get(key, {})
@@ -100,6 +114,12 @@ def make_headline():
             fsdh_v = str(fsdh_classical[key])
         else:
             fsdh_v = "n/a"
+        if fsdh_key and fsdh_key in vpt_qrc:
+            vpt_v = str(vpt_qrc[fsdh_key])
+        elif key in vpt_classical:
+            vpt_v = str(vpt_classical[key])
+        else:
+            vpt_v = "n/a"
         p1 = r1.get("dm_vs_persistence", {}).get("p_value")
         p6 = r6.get("dm_vs_persistence", {}).get("p_value")
 
@@ -110,7 +130,7 @@ def make_headline():
 
         pstr = f"{pshort(p1)}/{pshort(p6)}"
         row_name = f"\\textbf{{{disp}}}" if key in (best_1h, best_6h) else disp
-        lines.append(f"{row_name} & {rmse1}/{rmse6} & {skill_str} & {fsdh_v} & {pstr} \\\\")
+        lines.append(f"{row_name} & {rmse1}/{rmse6} & {skill_str} & {vpt_v} & {fsdh_v} & {pstr} \\\\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
     lines.append(
@@ -118,11 +138,13 @@ def make_headline():
         r"numbers, every row on identical data. RMSE in \textdegree C "
         f"(std$={std:.3f}$" + r"\textdegree C, \texttt{results/canonical\_units.json}). "
         r"$p$ is Diebold--Mariano vs.\ persistence; both concat rows also differ significantly from "
-        r"the null-control Ridge baseline (see text), toward worse skill. FSDH: max consecutive "
-        r"horizon (of 48) beating persistence. VPT $=1.0$ for every row except ARIMA(2,1,2) (0.0), "
-        r"omitted as uninformative here. $^\dagger$Null-control KRR's training set is capped at "
-        r"3{,}000 samples. $^\ddagger$GBM is a predictability-ceiling probe, not an RC-comparison "
-        r"baseline; FSDH/DM not computed for it.}"
+        r"the null-control Ridge baseline (see text), toward worse skill. VPT: max consecutive "
+        r"horizon (hours) with NRMSE below 0.4. FSDH: max consecutive horizon (of 48) beating "
+        r"persistence. $^\dagger$Null-control KRR's training set is capped at 3{,}000 samples; VPT/FSDH "
+        r"not computed for it (never swept over all 48 horizons) -- Null-control Ridge and "
+        r"Residual-Ridge instead reuse the equivalent raw-window-Ridge VPT/FSDH sweep from "
+        r"Sec.~\ref{sec:concat}. $^\ddagger$GBM is a predictability-ceiling probe, not an "
+        r"RC-comparison baseline; VPT/FSDH/DM not computed for it.}"
     )
     lines.append(r"\label{tab:headline}")
     lines.append(r"\end{table*}")

@@ -484,7 +484,7 @@
           "val_rmse": 0.7890085368051601
         }
       },
-      "wall_clock_s": 85.1410915851593,
+      "wall_clock_s": 122.09937524795532,
       "metrics": {
         "1": {
           "rmse": 0.24287356643725638,
@@ -519,6 +519,13 @@
     "esn_dim_matched": 0,
     "esn_500": 0,
     "residual_esn": 48
+  },
+  "vpt_curves": {
+    "arima": 0,
+    "arima_auto": 1,
+    "esn_dim_matched": 5,
+    "esn_500": 5,
+    "residual_esn": 5
   },
   "skill_curves": {
     "arima": {
@@ -773,16 +780,16 @@
     }
   },
   "wall_clock_s": {
-    "persistence": 3.0994415283203125e-05,
-    "arima": 12.60960841178894,
-    "arima_auto": 480.02002215385437,
-    "esn_dim_matched": 5.337569713592529,
-    "esn_500": 10.253155946731567,
-    "residual_esn": 5.372175455093384,
-    "null_ridge": 8.634894371032715,
-    "null_krr": 115.24836778640747,
-    "residual_ridge": 9.293484449386597,
-    "gbm_ceiling_probe": 85.1410915851593
+    "persistence": 3.0040740966796875e-05,
+    "arima": 15.130697011947632,
+    "arima_auto": 562.992618560791,
+    "esn_dim_matched": 6.705307483673096,
+    "esn_500": 13.773671865463257,
+    "residual_esn": 6.714590787887573,
+    "null_ridge": 14.018609046936035,
+    "null_krr": 143.61632895469666,
+    "residual_ridge": 13.515898942947388,
+    "gbm_ceiling_probe": 122.09937524795532
   },
   "misc_log": {
     "arima_auto_order_selection": {

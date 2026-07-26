@@ -1,4 +1,4 @@
-\documentclass[11pt,twocolumn]{article}
+\documentclass[11pt]{article}
 \usepackage{mathptmx}
 \usepackage[margin=0.5in]{geometry}
 \usepackage{booktabs}
@@ -11,12 +11,17 @@
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage{setspace}
+\usepackage{enumitem}
+\setlist{nosep, topsep=2pt, itemsep=1pt, parsep=0pt}
 \singlespacing
 \setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
 \setlength{\floatsep}{6pt plus 2pt minus 2pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{2pt}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{8pt}{4pt}
+\titlespacing*{\paragraph}{0pt}{6pt}{4pt}
 \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
 
 \title{\vspace{-1.5em}QRCx: Sequential Dissipative Quantum Reservoir Computing\\
@@ -25,11 +30,8 @@ for Operational Weather Forecasting}
 \author{QRCx Team \\ \small qBraid $\times$ MITRE $\times$ JonesTrading Global Industry Challenge 2026, Phase 3, Track B}
 \date{}
 
-\makeatletter
 \begin{document}
 
-\twocolumn[
-\begin{@twocolumnfalse}
 \maketitle
 \begin{abstract}
 \noindent We forecast 1--48\,h dry-bulb temperature at NOAA station KORD with a sequential
@@ -49,10 +51,6 @@ explaining why. We report this as an honest, mechanistically understood negative
 competitive forecaster, but the fairness protocol, stack engineering, and diagnostic are, we
 believe, of independent value.
 \end{abstract}
-\vspace{1em}
-\end{@twocolumnfalse}
-]
-\makeatother
 
 \section{Introduction}
 
@@ -202,7 +200,7 @@ possible within a real time budget, not as a novelty claim in itself.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../../figures/architecture_diagram.pdf}
+\includegraphics[width=0.65\textwidth]{../../figures/architecture_diagram.pdf}
 \caption{Sequential dissipative reservoir pipeline. $\rho_k$ (dashed feedback) carries the
 recurrent quantum state from step $k$ to $k{+}1$ -- the architectural feature
 Sec.~\ref{sec:results-mechanism}'s central ablation isolates.}
@@ -257,11 +255,11 @@ selects $\gamma_1{=}0.3,a{=}0.1$ (captured capacity 9.26 vs.\ 4.53 reference, $+
 remains better at $h{=}6,12$ (Table~\ref{tab:matching}) -- maximizing self-demand capture does not
 guarantee improving the multivariate-readout task, reported as a genuine, unresolved limitation.
 
-\input{tables/tab_ipc.tex}
+\input{tables_1col/tab_ipc.tex}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../../figures/ipc_matching_3panel.pdf}
+\includegraphics[width=0.85\textwidth]{../../figures/ipc_matching_3panel.pdf}
 \caption{(a) Task demand $D$(delay, degree) at $h{=}6$. (b) Reservoir supply $C$(lag, degree) at
 the matched configuration. (c) Captured capacity $\sum\min(C,D)$ across the $(\gamma_1,a)$ grid;
 the matched configuration (highlighted) is the grid maximum.}
@@ -285,7 +283,7 @@ more than one effective degree of freedom, consistent with a near-frozen, non-fa
 feature variance is correspondingly higher with dissipation on (0.00204) than off (0.00025).
 Undamped features are near-degenerate: there is essentially no fading memory to read out.
 
-\input{tables/tab_ablation.tex}
+\input{tables_1col/tab_ablation.tex}
 
 \subsection{Does the Reservoir Add Information Beyond Linear History?}
 \label{sec:concat}
@@ -308,7 +306,7 @@ skill relative to the null-control Ridge ceiling -- confirming the pilot-scale f
 scale with locked-test significance. The reservoir's signal is redundant with the raw window's own
 linear history, not complementary to it, on this configuration.
 
-\input{tables/tab_concat.tex}
+\input{tables_1col/tab_concat.tex}
 
 \subsection{Matched Full Benchmark}
 \label{sec:matched}
@@ -324,11 +322,11 @@ worse than -- persistence. Both architectures are simulated at different qubit c
 (12q density matrix vs.\ 20q statevector, different simulation costs), not as two measurements of
 one configuration.
 
-\input{tables/tab_headline.tex}
+\input{tables_1col/tab_headline.tex}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../../figures/fsdh_curve.pdf}
+\includegraphics[width=0.42\textwidth]{../../figures/fsdh_curve.pdf}
 \caption{Skill vs.\ persistence, all 48 forecast horizons, classical baselines with a full
 per-horizon sweep (canonical test split), persistence zero-line. Null-control/Residual-Ridge and
 the QRC/concat models are evaluated only at $h{=}1,6$ (Table~\ref{tab:headline}), not plotted here
@@ -372,19 +370,19 @@ tested, classical or quantum, on the locked canonical test split. \textbf{No qua
 claim}: a 12-qubit density matrix is classically simulable, and the only defensible framing is a
 per-degree-of-freedom comparison against a dimension-matched classical reservoir, which also is
 not beaten (Sec.~\ref{sec:concat}). Scope is single-station, temperature-only, no spatial/upstream
-information. \textbf{Real NWP comparison, and it is humbling}: at the only lead times a free public
-archive offers without running our own NWP pipeline (24h/48h GFS forecasts, Open-Meteo's
+information. \textbf{Real NWP comparison, and it is humbling}: at the only lead times a free
+public archive offers without running our own NWP pipeline (24h/48h GFS forecasts, Open-Meteo's
 Previous-Runs archive, real KORD 2024 data), GFS skill is $+55.5\%$/$+65.3\%$ vs.\ persistence --
 far above our best model's $+12.9\%$/$+21.4\%$ (null-control Ridge) at the same horizons
 ($p{<}0.001$). No model in this paper is competitive with a real NWP pipeline. \textbf{Scope
-reductions, logged not hidden}: the full ablation planned (2 $\gamma_1\times$2
-multiplexing$\times$3 seeds, 12 drives) was reduced to 2 drives (1 seed, $V{=}1$) for time-budget
-reasons, estimated at $\sim$21 GPU-hours
-post-fix and not run. \textbf{Real bugs found and fixed, not hidden}: beyond the Tier-1/Tier-2 bugs
-already detailed in Sec.~\ref{sec:stack}, a PennyLane auto-queuing double-application bug, a
-missing-data bug, and a window/raw-sequence index-alignment gap in the canonical-split export were
-each found and fixed before silently corrupting a result. \textbf{Stakeholder impact}: an
-operational forecaster should, honestly, choose linear regression over this reservoir today; the
+reductions, logged not hidden}: the full ablation planned (2
+$\gamma_1\times$2 multiplexing$\times$3 seeds, 12 drives) was reduced to 2 drives (1 seed,
+$V{=}1$) for time-budget reasons, estimated at $\sim$21 GPU-hours post-fix and not run.
+\textbf{Real bugs found and fixed, not hidden}: beyond the Tier-1/Tier-2 bugs already detailed in
+Sec.~\ref{sec:stack}, a PennyLane auto-queuing double-application bug, a missing-data bug, and a
+window/raw-sequence index-alignment gap in the canonical-split export were each found and fixed
+before silently corrupting a result. \textbf{Stakeholder impact}: an operational forecaster
+should, honestly, choose linear regression over this reservoir today; the
 value here is a validated negative result and mechanistic understanding motivating further work.
 
 \section{Conclusion}

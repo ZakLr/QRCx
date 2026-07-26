@@ -25,6 +25,7 @@ from sklearn.linear_model import Ridge
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "QRCx"))
 from QRCx.metrics.fsdh import compute_fsdh_curve
+from QRCx.metrics.forecast import compute_vpt_curve
 from QRCx.data.split_guard import assert_test_unlocked, UNLOCK_TOKEN
 
 MAX_H = 48
@@ -151,15 +152,23 @@ def main():
             print(f"  h={h}/{MAX_H} done")
 
     fsdh_results = {}
+    vpt_results = {}
     for name in models:
         fsdh_val = compute_fsdh_curve(y_true_h, y_model_h[name], y_persist_h)
         fsdh_results[name] = fsdh_val
-        print(f"FSDH[{name}] = {fsdh_val}")
+        # Real VPT (max consecutive horizon with NRMSE < threshold) --
+        # distinct from the per-sample 0/1 flag `metrics[name]['vpt']`
+        # computed elsewhere, which is NOT the official challenge doc's
+        # VPT definition (a real bug this fixes).
+        vpt_val = compute_vpt_curve(y_true_h, y_model_h[name])
+        vpt_results[name] = vpt_val
+        print(f"FSDH[{name}] = {fsdh_val}   VPT[{name}] = {vpt_val}")
 
     out_path = REPO_ROOT / "results" / f"qrc_fsdh_{eval_split}.json"
     with open(out_path, "w") as f:
         json.dump({"eval_split": eval_split, "max_horizon": MAX_H,
-                    "n_samples": int(n_eval), "fsdh": fsdh_results}, f, indent=2)
+                    "n_samples": int(n_eval), "fsdh": fsdh_results,
+                    "vpt": vpt_results}, f, indent=2)
     print(f"Wrote {out_path}")
 
 

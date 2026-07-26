@@ -1,0 +1,33 @@
+{
+  "station": "KORD",
+  "year": 2024,
+  "source": "open-meteo.com previous-runs-api (real archived GFS forecast, day-ahead lead times only)",
+  "horizons": {
+    "24": {
+      "n_hours_compared": 8297,
+      "gfs_skill_vs_persistence": 0.5547844950212772,
+      "gfs_dm_vs_persistence": {
+        "dm_stat": -11.253006901733556,
+        "p_value": 0.0,
+        "mean_loss_diff": -16.662757623237315,
+        "n": 8297,
+        "maxlags": 23
+      },
+      "null_control_ridge_skill_vs_persistence": 0.12853008144956324,
+      "v5_qrc_skill_vs_persistence": 0.11886445251977662
+    },
+    "48": {
+      "n_hours_compared": 8249,
+      "gfs_skill_vs_persistence": 0.6530553615629052,
+      "gfs_dm_vs_persistence": {
+        "dm_stat": -10.762776243695296,
+        "p_value": 0.0,
+        "mean_loss_diff": -32.49700084858771,
+        "n": 8249,
+        "maxlags": 47
+      },
+      "null_control_ridge_skill_vs_persistence": 0.213912951251517,
+      "v5_qrc_skill_vs_persistence": 0.18060170846032408
+    }
+  }
+}

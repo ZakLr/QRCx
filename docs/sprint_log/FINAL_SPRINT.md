@@ -333,3 +333,55 @@ Dirac-3 outcome, every scope cut with its reason.
 - **Zip built** via `scripts/phase7_package.py` (`git ls-files`-based,
   respects `.gitignore`): `QRCx_Challenge_Phase3.zip`, 194 files,
   3.19 MB, write-up PDF (`QRCx_writeup.pdf`) at archive root.
+
+## Post-review: official challenge doc cross-check (real, serious findings)
+
+The user pointed to `Qbraid_MITRE_JonesTrading_Phase_3_Challenge_Description.pdf`
+(the actual official rules, previously not read in full) and asked for
+a hard cross-check. Real findings:
+
+- **Dirac-3 is stated as a Phase 3 requirement** in the official doc
+  ("Phase 3 requires working implementations run on QCi's Dirac-3...
+  All three pipeline stages must be executed on a concrete grid
+  instance"). Flagged to the user explicitly; user confirmed no real
+  Dirac-3 access exists and directed it be dropped from the paper
+  entirely (not reframed, not left as a stand-in mention) -- done.
+- **Two paper versions built**: the official doc specifies "11-point
+  Times New Roman, single spacing, max 5 pages" with no column
+  requirement; an earlier detailed prompt had specified twocolumn. Built
+  both `docs/paper/main.tex` (twocolumn) and
+  `docs/paper/main_singlecolumn.tex` (plain), sharing the same
+  programmatically-generated tables (`tables/` vs `tables_1col/`, the
+  only difference being `table*` vs `table`). Both reduced from 8 to
+  6 body pages (references on a clean separate page) through prose
+  trims, tighter list/heading spacing, smaller figures, and margin
+  reduced to 0.5in (the doc doesn't specify a margin) -- neither
+  reaches the strict 5-page cap without removing an entire additional
+  table or section, which was not done; flagged honestly rather than
+  cut real content further.
+- **Real bug found: VPT was computed wrong.** `QRCx.metrics.forecast`
+  has two different functions: `vpt()` (a meaningless per-sample 0/1
+  flag at a single horizon) and `compute_vpt_curve()` (max consecutive
+  horizon with NRMSE below threshold -- matching the official doc's
+  actual VPT definition). Every "VPT" number reported anywhere in this
+  project used the wrong function. Fixed by adding real VPT-curve
+  computation to `generate_baselines.py` (classical models) and
+  `scripts/phase5_fsdh_qrc.py` (QRC/concat models), reusing the same
+  per-horizon prediction arrays already built for FSDH. Real corrected
+  values (hours): ARIMA 0, ARIMA-auto 1, ESN family 5, v4/v5 QRC 5,
+  null-control Ridge / concat-v4 6 -- genuinely differentiated, unlike
+  the old fake 1.0-for-everything.
+- **Real NWP baseline added** (previously skipped as "not attempted,
+  named gap"). The official doc explicitly permits comparing to public
+  NWP archives instead of running one's own model. Used Open-Meteo's
+  free Previous-Runs API (real archived GFS forecasts, fixed day-ahead
+  lead times only -- 24h/48h happen to be two of our own six canonical
+  horizons). Real, humbling result: GFS skill +55.5%/+65.3% vs.
+  persistence at KORD 2024, vs. our own best model's +12.9%/+21.4%
+  (null-control Ridge) at the same horizons (`results/nwp_baseline.json`,
+  `scripts/phase_nwp_baseline.py`, real ISD ground truth joined against
+  real archived forecasts, DM-tested). Integrated into both paper
+  versions' Discussion section.
+- README's "Launch on qBraid" badge checked against the doc's reference
+  link (a setup-guide discussion thread, not a literal href target) --
+  kept the existing functional badge.

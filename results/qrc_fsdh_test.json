@@ -8,5 +8,12 @@
     "concat_C_raw_plus_v5": 48,
     "v4_qrc_residual_20q": 0,
     "concat_C_raw_plus_v4": 48
+  },
+  "vpt": {
+    "v5_qrc_residual_12q": 5,
+    "null_ridge_raw_window": 6,
+    "concat_C_raw_plus_v5": 5,
+    "v4_qrc_residual_20q": 5,
+    "concat_C_raw_plus_v4": 6
   }
 }

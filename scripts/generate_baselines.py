@@ -59,7 +59,7 @@ from QRCx.data.preprocessor import preprocess
 from QRCx.data.split_guard import assert_test_unlocked
 from QRCx.baselines import persistence, arima, esn
 from QRCx.baselines.fairness import null_control_forecast, residual_ridge_forecast, gbm_ceiling_probe_forecast
-from QRCx.metrics.forecast import rmse, mae, nrmse, skill_score, vpt
+from QRCx.metrics.forecast import rmse, mae, nrmse, skill_score, vpt, compute_vpt_curve
 from QRCx.metrics.fsdh import compute_fsdh_curve
 from QRCx.metrics.significance import diebold_mariano, skill_difference_ci
 
@@ -249,6 +249,7 @@ def main() -> int:
         metrics[name] = evaluate_model(name, preds_eval, y_eval_eval_cols, pers_eval)
 
     fsdh_curves = {}
+    vpt_curves = {}
     skill_curves = {}
     for name, preds_curve in all_preds_curve.items():
         if name == "persistence":
@@ -256,6 +257,12 @@ def main() -> int:
         y_model_mh = np.column_stack([preds_curve[h] for h in ALL_HORIZONS])
         y_persist_mh = np.column_stack([pers_curve[h] for h in ALL_HORIZONS])
         fsdh_curves[name] = compute_fsdh_curve(y_eval, y_model_mh, y_persist_mh)
+        # Real VPT (Valid Prediction Time): max consecutive horizon where
+        # NRMSE < threshold -- NOT the same as metrics[name]['vpt'], which
+        # is a per-sample 0/1 flag at a single horizon and was being
+        # mis-reported as "VPT" in the paper's headline table (a real bug,
+        # caught against the official challenge doc's VPT definition).
+        vpt_curves[name] = compute_vpt_curve(y_eval, y_model_mh)
         # Real per-horizon skill, not just the scalar FSDH -- needed for the
         # skill-vs-horizon figure; previously computed in-memory above and
         # discarded, a real gap fixed here rather than worked around again.
@@ -299,6 +306,7 @@ def main() -> int:
         "metrics": metrics,
         "ceiling_probes": ceiling_probes,
         "fsdh_curves": fsdh_curves,
+        "vpt_curves": vpt_curves,
         "skill_curves": skill_curves,
         "wall_clock_s": wall_clock,
         "misc_log": misc_log,
