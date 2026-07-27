@@ -91,7 +91,7 @@ Related work: Ahmed et al. 2025 (arXiv:2506.22335), Kornjača et al. 2024
 ---
 
 ## Install
-
+Before installation, make sure to replace the qbraid API key With your own in the .env file.
 ```bash
 git clone https://github.com/ZakLr/QRCx QRCx_repo
 cd QRCx_repo/QRCx        # the installable package root (pyproject.toml lives here,
@@ -383,7 +383,7 @@ summary of.
 ```bibtex
 @software{QRCx,
   title = {QRCx: Quantum Reservoir Computing for Weather Forecasting},
-  author = {QRCx Team},
+  author = {eQoSystem},
   year = {2026},
   url = {https://github.com/ZakLr/QRCx}
 }
