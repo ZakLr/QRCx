@@ -11,7 +11,11 @@
 \usepackage{url}
 \usepackage{hyperref}
 \usepackage{setspace}
+\usepackage{titlesec}
 \singlespacing
+\titlespacing*{\section}{0pt}{6pt}{3pt}
+\titlespacing*{\subsection}{0pt}{5pt}{2pt}
+\titlespacing*{\paragraph}{0pt}{5pt}{3pt}
 \setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
 \setlength{\floatsep}{6pt plus 2pt minus 2pt}
 \setlength{\intextsep}{6pt plus 2pt minus 2pt}
@@ -22,7 +26,7 @@
 \title{\vspace{-1.5em}QRCx: Sequential Dissipative Quantum Reservoir Computing\\
 with a Validated Multi-Backend GPU Simulation Stack\\
 for Operational Weather Forecasting}
-\author{QRCx Team \\ \small qBraid $\times$ MITRE $\times$ JonesTrading Global Industry Challenge 2026, Phase 3, Track B}
+\author{}
 \date{}
 
 \makeatletter
@@ -57,37 +61,30 @@ believe, of independent value.
 \section{Introduction}
 
 Short-horizon station-level temperature forecasting is deceptively hard to beat: persistence is a
-brutal 1--6\,h baseline, and the marginal skill above it is what aviation, grid, and short-cycle
-agriculture actually consume. Reservoir computing is attractive here because only a linear readout
-is trained on fixed, randomly initialized nonlinear dynamics, avoiding the vanishing-gradient and
-barren-plateau problems of variational quantum algorithms.
+brutal 1--6\,h baseline, and the marginal skill above it is what aviation, grid, and agriculture
+actually consume. Reservoir computing is attractive here because only a linear readout is trained
+on fixed, randomly initialized dynamics, avoiding the vanishing-gradient and barren-plateau
+problems of variational quantum algorithms.
 
-This paper answers three falsifiable questions:
-\begin{enumerate}
-\item Does engineered dissipation, not just unitary evolution, provide the reservoir's
-  task-relevant memory?
-\item Does the reservoir contribute forecast information beyond a linear map of the observation
-  history, beyond what a dimension-matched classical reservoir already contributes?
-\item Does capacity-matched reservoir tuning -- selecting hyperparameters to maximize
-  \emph{task-relevant} information capacity rather than total capacity -- improve forecast skill?
-\end{enumerate}
+This paper answers three falsifiable questions: does engineered dissipation, not just unitary
+evolution, provide the reservoir's task-relevant memory; does the reservoir contribute forecast
+information beyond a linear map of the observation history, beyond what a dimension-matched
+classical reservoir already contributes; and does capacity-matched reservoir tuning -- selecting
+hyperparameters to maximize \emph{task-relevant} information capacity rather than total capacity
+-- improve forecast skill.
 
-\textbf{Contributions:}
-\begin{itemize}
-\item A sequential (genuinely recurrent, not fresh-encode-per-window) dissipative TFIM reservoir
-  with exact-propagator coherent evolution and time-multiplexed readout ($3N+3\binom{N}{2}{=}234$
-  correlators at $N{=}12$).
-\item A validated two-tier simulation stack (Sec.~\ref{sec:stack}): three backends agreeing to
-  $\sim\!10^{-14}$, catching two real physics bugs; a GPU tier with a measured
-  $\sim\!75\times$ speedup after two throughput bugs were fixed.
-\item IPC-matched reservoir tuning (Sec.~\ref{sec:ipc}): task demand matched against reservoir
-  supply, $+104\%$ captured-capacity improvement, with an honest per-horizon limitation.
-\item A concatenated-readout experiment (Sec.~\ref{sec:concat}) with a classical-reservoir
-  control, isolating whether the quantum signal is complementary to or redundant with linear
-  history, with an effective-rank diagnostic explaining the result.
-\item A matched, fairness-audited full benchmark (Sec.~\ref{sec:matched}) on an identical
-  canonical split for every model, with a locked one-time test-split confirmation.
-\end{itemize}
+\textbf{Contributions:} a sequential (genuinely recurrent, not fresh-encode-per-window)
+dissipative TFIM reservoir with exact-propagator coherent evolution and time-multiplexed readout
+($3N+3\binom{N}{2}{=}234$ correlators at $N{=}12$); a validated two-tier simulation stack
+(Sec.~\ref{sec:stack}: three backends agreeing to $\sim\!10^{-14}$, catching two real physics
+bugs; a GPU tier with a measured $\sim\!75\times$ speedup after two throughput bugs were fixed);
+IPC-matched reservoir tuning (Sec.~\ref{sec:ipc}: task demand matched against reservoir supply,
+$+104\%$ captured-capacity improvement, with an honest per-horizon limitation); a
+concatenated-readout experiment (Sec.~\ref{sec:concat}) with a classical-reservoir control,
+isolating whether the quantum signal is complementary to or redundant with linear history, with
+an effective-rank diagnostic explaining the result; and a matched, fairness-audited full
+benchmark (Sec.~\ref{sec:matched}) on an identical canonical split for every model, with a
+locked one-time test-split confirmation.
 
 \textbf{Three key performance metrics} are used throughout: RMSE (in \textdegree C, physically
 interpretable), skill vs.\ persistence, and FSDH (Forecast Skill Duration Horizon), which we
@@ -98,25 +95,24 @@ horizon, out of 48, at which a model beats persistence, stopping at the first fa
 \section{Background and Related Work}
 
 Reservoir computing traces to echo-state networks \cite{jaeger2001} (train only a linear readout
-on a fixed random recurrent reservoir); quantum reservoir computing (QRC) extends this to
-high-dimensional quantum dynamics as the fixed substrate, demonstrated at scale on analog hardware
-\cite{kornjaca2024} and shown to require no training beyond the readout even for disordered
-ensembles \cite{fujii2017}, which also introduces the time-multiplexed readout technique used
-here. Hou et al.\ \cite{hou} build a dissipative, experimentally realized QRC with time-multiplexed
-readout that this work builds on directly, identifying $T_1$ (amplitude damping) as the pivotal
-noise channel rather than an obstacle -- a framing Antoncich et al.\ \cite{antoncich} generalize
-to hardware-induced dissipation as useful regularization. Information processing capacity (IPC)
-\cite{dambre2012} formalizes how much of a target signal a reservoir's basis functions can
-reconstruct; \v{C}indrak et al.\ \cite{cindrak2026} extend IPC to dissipative quantum reservoirs
-and establish the memory--nonlinearity trade-off central to Sec.~\ref{sec:ipc}. QRC has recently
-been applied to chaotic-system forecasting \cite{ahmed2025} and financial/industrial time series
-\cite{li2025,tandon2025}, giving this paper's real, noisy, non-stationary weather-data application
-direct precedent; Havl\'{i}\v{c}ek et al.\ \cite{havlicek2019} establish quantum feature-space
-encodings more broadly. \textbf{Gap addressed}: prior dissipative-QRC work establishes the
-mechanism on synthetic or short benchmark tasks; this paper applies the identical architecture to
-a real, multi-year weather dataset under a fairness protocol explicit enough that a null result
-cannot be hidden, and asks directly whether the reservoir's signal is redundant with or
-complementary to the observation history a linear model already sees.
+on a fixed random recurrent reservoir); QRC extends this to high-dimensional quantum dynamics as
+the fixed substrate, demonstrated at scale on analog hardware \cite{kornjaca2024} and shown to
+require no training beyond the readout even for disordered ensembles \cite{fujii2017}, which also
+introduces the time-multiplexed readout used here. Hou et al.\ \cite{hou} build a dissipative,
+experimentally realized QRC with time-multiplexed readout that this work builds on directly,
+identifying $T_1$ (amplitude damping) as the pivotal noise channel rather than an obstacle -- a
+framing Antoncich et al.\ \cite{antoncich} generalize to hardware-induced dissipation as useful
+regularization. IPC \cite{dambre2012} formalizes how much of a target signal a reservoir's basis
+functions can reconstruct; \v{C}indrak et al.\ \cite{cindrak2026} extend IPC to dissipative
+quantum reservoirs and establish the memory--nonlinearity trade-off central to
+Sec.~\ref{sec:ipc}. QRC has recently been applied to chaotic-system forecasting \cite{ahmed2025}
+and financial/industrial time series \cite{li2025,tandon2025}, giving this paper's real, noisy,
+non-stationary application direct precedent; Havl\'{i}\v{c}ek et al.\ \cite{havlicek2019}
+establish quantum feature-space encodings more broadly. \textbf{Gap addressed}: prior
+dissipative-QRC work establishes the mechanism on synthetic or short benchmark tasks; this paper
+applies the identical architecture to a real, multi-year weather dataset under a fairness
+protocol explicit enough that a null result cannot be hidden, asking directly whether the
+reservoir's signal is redundant with or complementary to the history a linear model already sees.
 
 \section{Architecture}
 \label{sec:arch}
@@ -132,10 +128,10 @@ The reservoir state evolves as
 with TFIM Hamiltonian $H = \sum_i g\,X_i + \sum_{i<j} J\,Z_iZ_j$ ($J{=}g{=}1.0$, $N{=}12$,
 $\tau{=}1.0$). The coherent step uses the \emph{exact} propagator via eigendecomposition of $H$
 (no Trotter error) for every simulation and benchmark reported. A first-order Trotterized path
-($M{=}10$ steps per interval) is retained for hardware matching: at the 12-qubit reference
-dimension this gives circuit depth 191 (1{,}170 gates: 858 IsingZZ, 156 RZ, 120 RX, 36 Hadamard,
-measured via \texttt{qml.specs} on the exact encoding circuit, not a hand estimate); at the
-windowed variant's own 20-qubit configuration, depth 303 (2{,}990 gates).
+($M{=}10$ steps/interval) is retained for hardware matching: at the 12-qubit reference dimension
+this gives circuit depth 191 (1{,}170 gates: 858 IsingZZ, 156 RZ, 120 RX, 36 Hadamard, measured via
+\texttt{qml.specs} on the exact circuit, not a hand estimate); at the windowed variant's own
+20-qubit configuration, depth 303 (2{,}990 gates).
 
 \paragraph{Input Injection and Encoding Density.}
 
@@ -148,10 +144,10 @@ scalar input scaling $a$; an alternative ZZ-feature-map-style injection is retai
 
 $D_{\gamma_1,\gamma_2}$ applies per-qubit amplitude damping ($\gamma_1$) and dephasing
 ($\gamma_2$) Kraus channels once per step. Amplitude damping -- non-unital, biasing the state
-toward $|0\rangle$ -- is the memory mechanism: it is what makes older inputs' influence decay,
-which is the essential property Sec.~\ref{sec:results-mechanism} isolates directly. This
-contrasts with depolarizing noise, which is purely destructive (Sec.~\ref{sec:char}, and Hou's
-$T_1$-pivotal finding \cite{hou}).
+toward $|0\rangle$ -- is the memory mechanism: it makes older inputs' influence decay, the
+essential property Sec.~\ref{sec:results-mechanism} isolates directly. This contrasts with
+depolarizing noise, which is purely destructive (Sec.~\ref{sec:char}, Hou's $T_1$-pivotal
+finding \cite{hou}).
 
 \paragraph{Time-Multiplexed Readout.}
 
@@ -178,32 +174,31 @@ contraction index, invisible under a symmetric test gate (RX) and only surfaced 
 one (RY), which had silently broken trace preservation (trace drifted from 1.0 to $\sim\!0.94$
 after a single gate); (ii) a qubit-endianness mismatch between Qiskit's little-endian and this
 project's big-endian convention, producing a 0.47 maximum absolute feature discrepancy at a
-4-qubit sanity scale before the fix. CUDA-Q was this project's intended hardware-execution
-substrate from the outset: a working, GPU-portable CUDA-Q kernel implements the windowed (v4)
-architecture's unitary encoding-and-evolution circuit for hardware-matched statevector simulation.
-It does not yet model dissipation and is not part of the three-backend cross-validation above, so
-its output is not used for any headline number in this paper -- a real scope cut, not an
-oversight, made to keep the validated exact/GPU stack as the single source of truth under the
-submission deadline. Wiring real noise-modeled CUDA-Q trajectory execution into the sequential
-(v5) architecture is the direct next step this project is positioned for, not a hypothetical one.
+4-qubit scale before the fix. CUDA-Q was this project's intended hardware-execution substrate from
+the outset: a working, GPU-portable CUDA-Q kernel implements the windowed (v4) architecture's
+encoding-and-evolution circuit for hardware-matched statevector simulation. It does not yet model
+dissipation and is not part of the cross-validation above, so its output is not used for any
+headline number here -- a real scope cut, not an oversight, made to keep the validated exact/GPU
+stack the single source of truth under the submission deadline. Wiring real noise-modeled CUDA-Q
+trajectory execution into the sequential (v5) architecture is the direct next step this project is
+positioned for.
 
 \textbf{Tier 2 (throughput).} The reference 12-qubit sequential reservoir was accelerated from an
 initial CPU implementation (40.7\,s/step) through exact-propagator precomputation and
 BLAS-dispatching local-operator application (15.6--18\,s/step, CPU) to GPU execution: 7.42\,s/step
-(NVIDIA L4), and, after two further real throughput bugs were found and fixed (a per-step
+(NVIDIA L4), and, after two further throughput bugs were found and fixed (a per-step
 CPU$\leftrightarrow$GPU round-trip in correlator extraction, and $\sim\!700$ small GPU calls per
 step replaced by a handful of vectorized gathers), 0.149\,s/step complex128 / 0.072\,s/step
 complex64 on an NVIDIA H200 -- a $\sim\!75\times$ combined speedup from the CPU-optimized baseline
-to the fixed GPU path. Complex64 vs.\ complex128 agree to 5.9\% maximum relative error on this
-configuration -- above this project's usual $10^{-5}$ tolerance and flagged as an open,
-unresolved discrepancy, not hidden; complex128 was used for every headline drive since its
-projected cost (2.18\,h for the full canonical-split drive) comfortably fit the available budget,
-making the precision trade-off moot for the numbers reported here. Peak observed VRAM: 32.6\,GB
-of 143.8\,GB available (H200). All figures in this paragraph are in
-\texttt{results/full\_benchmark.json} and \texttt{results/h200\_benchmark.json}.
+to the fixed GPU path. Complex64 vs.\ complex128 agree to 5.9\% maximum relative error here --
+above this project's usual $10^{-5}$ tolerance and flagged as open, unresolved, not hidden;
+complex128 was used for every headline drive since its projected cost (2.18\,h for the full
+canonical-split drive) comfortably fit budget, making the precision trade-off moot for the
+numbers reported. Peak observed VRAM: 32.6\,GB of 143.8\,GB available (H200). All figures here are
+in \texttt{results/full\_benchmark.json} and \texttt{results/h200\_benchmark.json}.
 
-We frame this stack as engineering that made the science in Sec.~\ref{sec:results-mechanism}--\ref{sec:matched}
-possible within a real time budget, not as a novelty claim in itself.
+This stack is engineering that made the science in
+Sec.~\ref{sec:results-mechanism}--\ref{sec:matched} possible within budget, not a novelty claim.
 
 \begin{figure}[t]
 \centering
@@ -222,10 +217,10 @@ NOAA ISD-Lite, station KORD (USAF 725300, WBAN 94846), 2019--2024 (8{,}757--8{,}
 records/year). Per-column missingness: T\_db 0.06\%, T\_dew 0.06\%, RH 0.07\%, WS 0.05\%, SLP
 1.42\%, WD 1.07\%. The 13 engineered features are named in Sec.~\ref{sec:arch}. The target is the
 climatological anomaly $\epsilon_t=(y_t-\mu_{\text{climo}}(\text{month,day,hour}))/\sigma_{\text{climo}}$,
-normals computed on the train split only. Windows are 24\,h; a window is dropped if any of its 13
-features or its target (up to 48\,h ahead) touches a NaN -- this drops 36.7\% of otherwise-possible
-training windows given the horizon-48 lookahead requirement (a real, measured rate, not
-estimated), leaving 22{,}143 usable training windows.
+normals computed on train only. Windows are 24\,h; a window is dropped if any of its 13 features
+or its target (up to 48\,h ahead) touches a NaN -- this drops 36.7\% of otherwise-possible training
+windows given the horizon-48 lookahead requirement (measured, not estimated), leaving 22{,}143
+usable training windows.
 
 \paragraph{Splits.}
 Canonical split: train 2019--2022, val 2023, test 2024 -- no shuffling. Hyperparameter and
@@ -236,10 +231,10 @@ evaluated exactly once, by frozen models, after all selection is complete (Sec.~
 Persistence; ARIMA(2,1,2) and auto-order ARIMA; ESN dimension-matched to the quantum feature
 count (234 units) and ESN-500; Residual-ESN; null-control Ridge on the flattened raw window;
 Residual-Ridge; a HistGradientBoosting predictability-ceiling probe (not an RC-comparison
-baseline). Every model receives identical features, identical splits, identical scaling, and the
-same residual decomposition. Two real baseline bugs were diagnosed and fixed during development
-(an ESN input/target misalignment, and an ARIMA per-horizon indexing bug that had returned an
-identical forecast array at every horizon) -- evidence these are real opponents, not strawmen.
+baseline). Every model receives identical features, splits, scaling, and residual decomposition.
+Two real baseline bugs were diagnosed and fixed during development (an ESN input/target
+misalignment, and an ARIMA per-horizon indexing bug that had returned an identical forecast array
+at every horizon) -- evidence these are real opponents, not strawmen.
 
 \paragraph{Metrics.}
 RMSE, MAE (reported in \textdegree C), NRMSE, skill vs.\ persistence ($1-\text{MSE}_{\text{model}}/\text{MSE}_{\text{persist}}$),
@@ -375,31 +370,26 @@ per-step timing and precision choice in Sec.~\ref{sec:stack}).
 A plain linear Ridge regression on the raw observation window matches or beats every reservoir
 tested, classical or quantum, on the locked canonical test split. \textbf{No quantum-advantage
 claim}: a 12-qubit density matrix is classically simulable, and the only defensible framing is a
-per-degree-of-freedom comparison against a dimension-matched classical reservoir, which also is
-not beaten (Sec.~\ref{sec:concat}). Scope is single-station, temperature-only, no spatial/upstream
+per-degree-of-freedom comparison against a dimension-matched classical reservoir, also not beaten
+(Sec.~\ref{sec:concat}). Scope is single-station, temperature-only, no spatial/upstream
 information. \textbf{Real NWP comparison, and it is humbling}: at the only lead times a free public
-archive offers without running our own NWP pipeline (24h/48h GFS forecasts, Open-Meteo's
-Previous-Runs archive, real KORD 2024 data), GFS skill is $+55.5\%$/$+65.3\%$ vs.\ persistence --
-far above our best model's $+12.9\%$/$+21.4\%$ (null-control Ridge) at the same horizons
-($p{<}0.001$). No model in this paper is competitive with a real NWP pipeline. \textbf{Scope
-reductions, logged not hidden}: the full ablation planned (2 $\gamma_1\times$2
-multiplexing$\times$3 seeds, 12 drives) was reduced to 2 drives (1 seed, $V{=}1$) for time-budget
-reasons, estimated at $\sim$21 GPU-hours
-post-fix and not run. \textbf{Real bugs found and fixed, not hidden}: beyond the Tier-1/Tier-2 bugs
-already detailed in Sec.~\ref{sec:stack}, a PennyLane auto-queuing double-application bug, a
-missing-data bug, and a window/raw-sequence index-alignment gap in the canonical-split export were
-each found and fixed before silently corrupting a result. \textbf{Stakeholder impact}: an
-operational forecaster should, honestly, choose linear regression over this reservoir today; the
-value here is a validated negative result and mechanistic understanding motivating further work.
+archive offers without running our own NWP pipeline (24h/48h GFS, Open-Meteo's Previous-Runs
+archive, real KORD 2024 data), GFS skill is $+55.5\%$/$+65.3\%$ vs.\ persistence -- far above our
+best model's $+12.9\%$/$+21.4\%$ (null-control Ridge) at the same horizons ($p{<}0.001$). No model
+here is competitive with a real NWP pipeline. \textbf{Scope reductions, logged not hidden}: the
+full ablation planned (2 $\gamma_1\times$2 multiplexing$\times$3 seeds, 12 drives) was reduced to
+2 drives (1 seed, $V{=}1$) for time-budget reasons, estimated at $\sim$21 GPU-hours post-fix and
+not run. \textbf{Real bugs found and fixed, not hidden}: beyond the Tier-1/Tier-2 bugs in
+Sec.~\ref{sec:stack}, a PennyLane auto-queuing double-application bug, a missing-data bug, and a
+window/raw-sequence index-alignment gap in the canonical-split export were each found and fixed
+before silently corrupting a result. \textbf{Stakeholder impact}: an operational forecaster should,
+honestly, choose linear regression over this reservoir today; the value here is a validated
+negative result and mechanistic understanding motivating further work.
 
 \section{Conclusion}
 Dissipation is a real mechanism here, but its signal is redundant with a linear read of the
 observation history, and the reservoir does not yet beat that baseline, reported with a validated,
 reproducible stack behind every result.
-
-\noindent\textbf{LLM-use disclosure.} This code, experiments, and write-up were produced with an
-LLM (Claude, Anthropic) under human direction; every claim traces to a \texttt{results/*.json}
-file here.
 
 \bibliographystyle{plainnat}
 \begin{thebibliography}{99}

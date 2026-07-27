@@ -4,8 +4,7 @@ results/*.json, so main.tex \\input's these fragments and the paper
 cannot drift from the underlying data. Run before every paper compile.
 
 Tables written to docs/paper/tables/*.tex (twocolumn, table* spanning both
-columns) AND docs/paper/tables_1col/*.tex (plain table, for the
-single-column paper variant):
+columns):
   tab_headline.tex   -- Sec 6.3, ONE table, every model, canonical test split
   tab_ablation.tex   -- Sec 6.1, dissipation on/off
   tab_concat.tex     -- Sec 6.2, A/B/C/C' concatenated readout
@@ -17,7 +16,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS = REPO_ROOT / "results"
 OUT_DIR = REPO_ROOT / "docs" / "paper" / "tables"
-OUT_DIR_1COL = REPO_ROOT / "docs" / "paper" / "tables_1col"
 
 
 def pct(x, bold=False):
@@ -36,14 +34,6 @@ def write(name, content):
     with open(path, "w") as f:
         f.write(content)
     print(f"Wrote {path}")
-    # Single-column variant: table*/figure* are twocolumn-only environments
-    # (invalid in a plain, non-twocolumn documentclass) -- swap to the
-    # non-starred form, which already spans the full (now wider) column.
-    OUT_DIR_1COL.mkdir(parents=True, exist_ok=True)
-    content_1col = (content.replace(r"\begin{table*}", r"\begin{table}")
-                            .replace(r"\end{table*}", r"\end{table}"))
-    with open(OUT_DIR_1COL / name, "w") as f:
-        f.write(content_1col)
 
 
 # ---------------------------------------------------------------------------
