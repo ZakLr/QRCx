@@ -91,9 +91,9 @@ def make_headline():
     lines = []
     lines.append(r"\begin{table*}[t]")
     lines.append(r"\centering\footnotesize")
-    lines.append(r"\begin{tabular}{lccccc}")
+    lines.append(r"\begin{tabular}{lcccccc}")
     lines.append(r"\toprule")
-    lines.append(r"Model & RMSE\textdegree C (1h/6h) & skill (1h/6h) & VPT & FSDH & $p$ vs persist.\ (1h/6h) \\")
+    lines.append(r"Model & RMSE\textdegree C (1h/6h) & MAE\textdegree C (1h/6h) & skill (1h/6h) & VPT & FSDH & $p$ vs persist.\ (1h/6h) \\")
     lines.append(r"\midrule")
     for key, disp, kind, fsdh_key in display:
         rows = bench["models"].get(key, {})
@@ -103,6 +103,8 @@ def make_headline():
         r6 = rows.get("6", {})
         rmse1 = f"{r1['rmse_degC']:.2f}" if "rmse_degC" in r1 else "--"
         rmse6 = f"{r6['rmse_degC']:.2f}" if "rmse_degC" in r6 else "--"
+        mae1 = f"{r1['mae_degC']:.2f}" if "mae_degC" in r1 else "--"
+        mae6 = f"{r6['mae_degC']:.2f}" if "mae_degC" in r6 else "--"
         s1 = f"{r1['skill'] * 100:+.1f}\\%" if "skill" in r1 else "--"
         s6 = f"{r6['skill'] * 100:+.1f}\\%" if "skill" in r6 else "--"
         skill_str = f"{s1}/{s6}"
@@ -130,7 +132,7 @@ def make_headline():
 
         pstr = f"{pshort(p1)}/{pshort(p6)}"
         row_name = f"\\textbf{{{disp}}}" if key in (best_1h, best_6h) else disp
-        lines.append(f"{row_name} & {rmse1}/{rmse6} & {skill_str} & {vpt_v} & {fsdh_v} & {pstr} \\\\")
+        lines.append(f"{row_name} & {rmse1}/{rmse6} & {mae1}/{mae6} & {skill_str} & {vpt_v} & {fsdh_v} & {pstr} \\\\")
     lines.append(r"\bottomrule")
     lines.append(r"\end{tabular}")
     lines.append(

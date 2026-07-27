@@ -1,23 +1,23 @@
 \begin{table*}[t]
 \centering\footnotesize
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
-Model & RMSE\textdegree C (1h/6h) & skill (1h/6h) & VPT & FSDH & $p$ vs persist.\ (1h/6h) \\
+Model & RMSE\textdegree C (1h/6h) & MAE\textdegree C (1h/6h) & skill (1h/6h) & VPT & FSDH & $p$ vs persist.\ (1h/6h) \\
 \midrule
-Persistence & 0.90/2.80 & +0.0\%/+0.0\% & n/a & n/a & --/-- \\
-ARIMA(2,1,2) & 6.76/6.79 & -5552.0\%/-487.5\% & 0 & 0 & $<.001$/$<.001$ \\
-ARIMA (auto-order) & 2.33/3.48 & -569.9\%/-54.8\% & 1 & 0 & $<.001$/$<.001$ \\
-ESN, dim-matched (234) & 1.15/2.71 & -64.2\%/+6.1\% & 5 & 0 & $<.001$/$0.101$ \\
-ESN-500 & 1.08/2.71 & -45.3\%/+6.0\% & 5 & 0 & $<.001$/$0.115$ \\
-Residual-ESN & 0.87/2.59 & +7.0\%/+14.8\% & 5 & 48 & $<.001$/$<.001$ \\
-Null-control Ridge & 0.85/2.52 & +10.5\%/+19.1\% & 6 & 48 & $<.001$/$<.001$ \\
-Null-control KRR$^\dagger$ & 2.43/4.36 & -629.8\%/-142.1\% & n/a & n/a & $<.001$/$<.001$ \\
-\textbf{Residual-Ridge} & 0.85/2.52 & \textbf{+10.5\%/+19.1\%} & 6 & 48 & $<.001$/$<.001$ \\
-v4 QRC (20q, statevector) & 0.90/2.81 & -1.4\%/-0.8\% & 5 & 0 & $<.001$/$0.167$ \\
-v5 QRC (12q, density matrix) & 0.87/2.59 & +6.5\%/+14.1\% & 5 & 48 & $<.001$/$<.001$ \\
-Concat $C{=}$[raw,v5] & 0.86/2.57 & +9.1\%/+15.7\% & 5 & 48 & $<.001$/$<.001$ \\
-Concat $C{=}$[raw,v4] & 0.86/2.54 & +8.6\%/+17.8\% & 6 & 48 & $<.001$/$<.001$ \\
-GBM ceiling probe$^\ddagger$ & 1.11/2.72 & -51.2\%/+5.9\% & n/a & n/a & --/-- \\
+Persistence & 0.90/2.80 & 0.65/2.15 & +0.0\%/+0.0\% & n/a & n/a & --/-- \\
+ARIMA(2,1,2) & 6.76/6.79 & 5.20/5.25 & -5552.0\%/-487.5\% & 0 & 0 & $<.001$/$<.001$ \\
+ARIMA (auto-order) & 2.33/3.48 & 1.72/2.69 & -569.9\%/-54.8\% & 1 & 0 & $<.001$/$<.001$ \\
+ESN, dim-matched (234) & 1.15/2.71 & 0.81/2.09 & -64.2\%/+6.1\% & 5 & 0 & $<.001$/$0.101$ \\
+ESN-500 & 1.08/2.71 & 0.76/2.10 & -45.3\%/+6.0\% & 5 & 0 & $<.001$/$0.115$ \\
+Residual-ESN & 0.87/2.59 & 0.62/1.97 & +7.0\%/+14.8\% & 5 & 48 & $<.001$/$<.001$ \\
+Null-control Ridge & 0.85/2.52 & 0.61/1.93 & +10.5\%/+19.1\% & 6 & 48 & $<.001$/$<.001$ \\
+Null-control KRR$^\dagger$ & 2.43/4.36 & 1.73/3.33 & -629.8\%/-142.1\% & n/a & n/a & $<.001$/$<.001$ \\
+\textbf{Residual-Ridge} & 0.85/2.52 & 0.61/1.93 & \textbf{+10.5\%/+19.1\%} & 6 & 48 & $<.001$/$<.001$ \\
+v4 QRC (20q, statevector) & 0.90/2.81 & 0.66/2.15 & -1.4\%/-0.8\% & 5 & 0 & $<.001$/$0.167$ \\
+v5 QRC (12q, density matrix) & 0.87/2.59 & 0.63/1.98 & +6.5\%/+14.1\% & 5 & 48 & $<.001$/$<.001$ \\
+Concat $C{=}$[raw,v5] & 0.86/2.57 & 0.62/1.99 & +9.1\%/+15.7\% & 5 & 48 & $<.001$/$<.001$ \\
+Concat $C{=}$[raw,v4] & 0.86/2.54 & 0.62/1.94 & +8.6\%/+17.8\% & 6 & 48 & $<.001$/$<.001$ \\
+GBM ceiling probe$^\ddagger$ & 1.11/2.72 & 0.73/2.07 & -51.2\%/+5.9\% & n/a & n/a & --/-- \\
 \bottomrule
 \end{tabular}
 \caption{Canonical-split (train 2019--2022/val 2023/test 2024), locked test-2024 headline numbers, every row on identical data. RMSE in \textdegree C (std$=4.554$\textdegree C, \texttt{results/canonical\_units.json}). $p$ is Diebold--Mariano vs.\ persistence; both concat rows also differ significantly from the null-control Ridge baseline (see text), toward worse skill. VPT: max consecutive horizon (hours) with NRMSE below 0.4. FSDH: max consecutive horizon (of 48) beating persistence. $^\dagger$Null-control KRR's training set is capped at 3{,}000 samples; VPT/FSDH not computed for it (never swept over all 48 horizons) -- Null-control Ridge and Residual-Ridge instead reuse the equivalent raw-window-Ridge VPT/FSDH sweep from Sec.~\ref{sec:concat}. $^\ddagger$GBM is a predictability-ceiling probe, not an RC-comparison baseline; VPT/FSDH/DM not computed for it.}
